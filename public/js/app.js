@@ -761,27 +761,50 @@
     return out;
   }
 
+  /** Interrupt keywords always count as barge-in (even short). */
+  function isInterruptWord(raw) {
+    return /^(stop|arr[eè]te|arr[eê]tez|attends?|wait|hey|allo|all[oô]|silence|chut|enough|basta)\b/i.test(String(raw || '').trim());
+  }
+
   /** True speech vs noise/music/echo: need letters, min length, optional confidence. */
   function isRealSpeech(raw, confidence) {
     const text = String(raw || '').trim();
     if (!text) return false;
+    if (isInterruptWord(text)) return true;
     const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
     if (letters < 4) return false;
     const words = text.split(/\s+/).filter((w) => /[\p{L}\p{N}]{2,}/u.test(w));
     if (words.length < 1) return false;
     // Single very short token is usually noise / TTS echo fragment
     if (words.length === 1 && words[0].length < 4) return false;
-    // Reject pure fillers
-    if (/^(um+|uh+|ah+|eh+|hmm+|mm+|euh+|hein+|ok|okay|oui|non|yes|no)\.?$/i.test(text)) return false;
-    if (typeof confidence === 'number' && !Number.isNaN(confidence) && confidence > 0 && confidence < 0.45) return false;
+    // Reject pure fillers (not interrupt words)
+    if (/^(um+|uh+|ah+|eh+|hmm+|mm+|euh+|hein+|ok|okay)\.?$/i.test(text)) return false;
+    if (typeof confidence === 'number' && !Number.isNaN(confidence) && confidence > 0 && confidence < 0.35) return false;
     return true;
+  }
+
+  function hardCancelTTS() {
+    try {
+      const syn = window.speechSynthesis;
+      if (!syn) return;
+      syn.cancel();
+      // iOS Safari often keeps speaking after cancel — pause + empty utterance clears queue
+      try { syn.pause(); } catch {}
+      try { syn.cancel(); } catch {}
+      try {
+        const u = new SpeechSynthesisUtterance('');
+        u.volume = 0;
+        syn.speak(u);
+        syn.cancel();
+      } catch {}
+    } catch {}
   }
 
   function cancelSpeaking() {
     speakToken++;
     callSpeaking = false;
     bargeArmed = false;
-    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+    hardCancelTTS();
   }
 
   let speakToken = 0;
@@ -798,9 +821,9 @@
       bargeArmed = false;
       setCallUI('speaking', t('js.call.speaking'), clean.slice(0, 180));
       // Arm barge-in after a short delay so TTS echo into the mic is ignored
-      setTimeout(() => { if (my === speakToken && callActive) bargeArmed = true; }, 550);
-      // Keep recognition alive during TTS for barge-in
-      if (callActive && !callListening) startCallListen({ duringSpeech: true });
+      setTimeout(() => { if (my === speakToken && callActive) bargeArmed = true; }, 280);
+      // Keep / restart recognition during TTS for barge-in (Safari often dies mid-utterance)
+      if (callActive) startCallListen({ duringSpeech: true, forceRestart: !callListening });
       let i = 0;
       const next = () => {
         if (my !== speakToken || !callActive || i >= chunks.length) {
@@ -919,12 +942,19 @@
         // Show interim while Qoria talks so user sees barge-in is live
         if ($('voiceTranscript')) $('voiceTranscript').textContent = display;
       }
+      // Cut TTS as soon as we hear real speech (interim) — don't wait for final (iOS lag)
+      if (callSpeaking && bargeArmed && !bargeBusy && display && isRealSpeech(display, conf)) {
+        cancelSpeaking();
+        setCallUI('listening', t('js.call.yourTurn'), display);
+      }
       // Prefer final transcript for barge-in / send
       if (finalText.trim()) {
         const said = finalText.trim();
         finalText = '';
-        if (callSpeaking) {
-          handleBargeIn(said);
+        if (callSpeaking || (speakToken && !callSpeaking && bargeBusy === false && display)) {
+          // If we already cancelled on interim, still send the final text
+          if (callSpeaking) handleBargeIn(said);
+          else if (!bargeBusy && isRealSpeech(said, conf)) voiceSend(said);
         } else if (!bargeBusy) {
           if (isRealSpeech(said, conf)) voiceSend(said);
         }

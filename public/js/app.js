@@ -128,6 +128,27 @@
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function renderRich(el, text) {
+    const re = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/image\.pollinations\.ai\/[^\s<>"')]+)/g;
+    let last = 0, m;
+    while ((m = re.exec(text))) {
+      if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
+      const url = m[2] || m[3];
+      try {
+        const u = new URL(url);
+        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw 0;
+        const img = document.createElement('img');
+        img.className = 'gen';
+        img.src = u.href;
+        img.alt = m[1] || 'image';
+        img.loading = 'lazy';
+        el.appendChild(img);
+      } catch { el.appendChild(document.createTextNode(m[0])); }
+      last = re.lastIndex;
+    }
+    if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
+  }
+
   function pushBubble(role, content, meta = {}) {
     if (emptyEl.parentNode) emptyEl.style.display = 'none';
     const wrap = document.createElement('div');
@@ -135,10 +156,7 @@
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     if (typeof content === 'string') {
-      const html = escapeHtml(content)
-        .replace(/!\[([^\]]*)\]\((https?:[^)]+)\)/g, '<img class="gen" src="$2" alt="$1" />')
-        .replace(/(https?:\/\/image\.pollinations\.ai\/[^\s<]+)/g, '<img class="gen" src="$1" alt="image" />');
-      bubble.innerHTML = html;
+      renderRich(bubble, content);
     } else {
       bubble.textContent = String(content);
     }

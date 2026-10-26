@@ -1,0 +1,51 @@
+services:
+  - type: web
+    name: qoria
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/status
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: OPENAI_BASE_URL
+        value: https://api.groq.com/openai/v1
+      - key: OPENAI_MODEL
+        value: qwen/qwen3.8-27b
+      - key: GROQ_MODEL
+        value: qwen/qwen3.8-27b
+      - key: FREE_DAILY_MESSAGES
+        value: "30"
+      - key: PRO_DAILY_MESSAGES
+        value: "500"
+      - key: ENSEMBLE_DAILY_CAP
+        value: "10"
+      - key: GROQ_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_OWN_API_KEY
+        sync: false
+      - key: XAI_API_KEY
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: IMAGE_API_KEY
+        sync: false
+      - key: IMAGE_BASE_URL
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PRICE_ID
+        sync: false
+      - key: VIDEO_API_KEY
+        sync: false
+      - key: VIDEO_API_URL
+        sync: false

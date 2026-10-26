@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Tarifs — Qoria</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="container">
+    <nav class="nav">
+      <a class="brand" href="/"><img src="/logo.jpg" alt="" /><span>Qoria</span></a>
+      <div class="nav-actions">
+        <a class="btn" href="/app.html">App</a>
+        <a class="btn btn-primary" href="/signup.html">S’inscrire</a>
+      </div>
+    </nav>
+    <section class="pricing" style="padding-top:2rem">
+      <h2>Free & Pro</h2>
+      <p style="text-align:center;color:var(--muted);max-width:32rem;margin:0 auto 1.5rem">
+        Pro à 20&nbsp;$/mois CAD. Le paiement Stripe s’active dès que STRIPE_PRICE_ID est configuré.
+        En mode test, tu peux activer Pro sans débit réel.
+      </p>
+      <div class="price-grid">
+        <div class="card price-card">
+          <h3>Free</h3>
+          <div class="price">0 $<span>/mois</span></div>
+          <ul>
+            <li>30 messages / jour</li>
+            <li>Images Pollinations</li>
+            <li>Mémoire & fichiers</li>
+          </ul>
+          <a class="btn" href="/signup.html" style="width:100%">Gratuit</a>
+        </div>
+        <div class="card price-card featured">
+          <h3>Pro</h3>
+          <div class="price">20 $<span>/mois CAD</span></div>
+          <ul>
+            <li>500 messages / jour</li>
+            <li>Mode ensemble (2 modèles)</li>
+            <li>Plafonds anti-dépassement coûts API</li>
+          </ul>
+          <button class="btn btn-primary" id="btnPro" style="width:100%">Passer à Pro</button>
+          <p id="billMsg" style="color:var(--muted);font-size:.8rem;margin-top:.6rem"></p>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+    const token = localStorage.getItem('qoria_token');
+    btnPro.onclick = async () => {
+      billMsg.textContent = '…';
+      if (!token) { location.href = '/login.html'; return; }
+      const r = await fetch('/api/billing/checkout', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify({ devUpgrade: true })
+      });
+      const d = await r.json();
+      if (d.url) { location.href = d.url; return; }
+      billMsg.textContent = d.message || (d.ok ? 'Pro activé (test).' : 'Stub — configure Stripe.');
+      if (d.ok && d.stub) setTimeout(() => location.href = '/app.html', 800);
+    };
+  </script>
+</body>
+</html>

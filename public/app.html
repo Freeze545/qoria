@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+  <title>Qoria</title>
+  <meta name="theme-color" content="#070a12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <div class="overlay" id="overlay"></div>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <div class="side-brand">
+        <img src="/logo.jpg" alt="Qoria" />
+        <div>
+          <strong>Qoria</strong>
+          <div class="chip" id="planChip">Free</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="btnNew" style="width:100%">＋ Nouvelle conversation</button>
+      <div class="conv-list" id="convList"></div>
+      <div class="side-foot">
+        <div class="chip" id="usageChip">Usage…</div>
+        <button class="btn" id="btnMemory" style="width:100%">Mémoire</button>
+        <button class="btn" id="btnProviders" style="width:100%">Modèles</button>
+        <button class="btn" id="btnPricing" style="width:100%">Tarifs Pro</button>
+        <button class="btn btn-ghost" id="btnLogout" style="width:100%">Déconnexion</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="icon-btn mobile-only" id="btnMenu" aria-label="Menu">☰</button>
+        <img src="/logo.jpg" alt="" width="28" height="28" style="border-radius:8px;object-fit:cover" />
+        <h1>Qoria</h1>
+        <button class="icon-btn" id="btnMemoryTop" title="Mémoire">🧠</button>
+      </header>
+
+      <div class="messages" id="messages">
+        <div class="empty" id="empty">
+          <img src="/logo.jpg" alt="" />
+          <h2 style="color:var(--text);margin:.2rem 0">Salut, je suis Qoria</h2>
+          <p>Pose une question, génère une image, ou joins un fichier. Sur iPhone, utilise Safari ou Chrome.</p>
+        </div>
+      </div>
+
+      <div class="composer-wrap">
+        <div class="attach-preview" id="attachPreview" hidden>
+          <img id="attachThumb" alt="" />
+          <span id="attachLabel"></span>
+          <button class="icon-btn" id="btnClearAttach" type="button" aria-label="Retirer">×</button>
+        </div>
+        <div class="modes" role="toolbar">
+          <button type="button" class="mode active" data-mode="chat">💬 Chat</button>
+          <button type="button" class="mode" data-mode="image">🖼️ Photo</button>
+          <button type="button" class="mode" data-mode="ensemble" id="modeEnsemble">⚡ Ensemble</button>
+        </div>
+        <form class="composer" id="composer">
+          <button type="button" class="icon-btn" id="btnAttach" title="Fichier">📎</button>
+          <textarea id="input" rows="1" placeholder="Écris à Qoria…" enterkeyhint="send"></textarea>
+          <button type="button" class="icon-btn" id="btnMic" title="Micro (Web Speech)">🎤</button>
+          <button type="submit" class="icon-btn" id="btnSend" title="Envoyer" style="background:var(--grad);border:0">➤</button>
+        </form>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.md,text/plain,application/pdf" hidden />
+        <div class="usage" id="usageLine"></div>
+        <div class="voice-note">Voix : Web Speech API — sur Safari iOS, le micro peut être limité ou indisponible selon la version.</div>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-bg" id="memModal">
+    <div class="modal">
+      <h2>Mémoire personnelle</h2>
+      <p style="color:var(--muted);font-size:.85rem">Faits injectés dans le prompt système. Tu contrôles tout.</p>
+      <div id="memList"></div>
+      <div class="field" style="margin-top:.8rem">
+        <input id="memInput" placeholder="Ex. J’habite à Montréal" />
+      </div>
+      <div style="display:flex;gap:.4rem;flex-wrap:wrap">
+        <button class="btn btn-primary" id="btnAddMem">Ajouter</button>
+        <button class="btn" id="btnClearMem">Tout effacer</button>
+        <button class="btn btn-ghost" id="btnCloseMem">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-bg" id="provModal">
+    <div class="modal">
+      <h2>Fournisseurs de modèles</h2>
+      <p style="color:var(--muted);font-size:.85rem">Qoria route automatiquement. « Connecté » = clé présente + test réel OK.</p>
+      <div id="provList"></div>
+      <button class="btn" id="btnSmoke" style="margin-top:.8rem;width:100%">Relancer les tests</button>
+      <button class="btn btn-ghost" id="btnCloseProv" style="width:100%;margin-top:.4rem">Fermer</button>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>

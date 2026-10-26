@@ -297,6 +297,11 @@ button, input, textarea { font: inherit; }
 }
 .side-brand strong { font-size: 1.08rem; letter-spacing: -.025em; }
 .conv-list { flex: 1; overflow: auto; display: flex; flex-direction: column; gap: .28rem; }
+.conv-empty {
+  margin: .75rem .35rem; padding: .85rem .9rem; border-radius: 14px;
+  border: 1px dashed rgba(255,255,255,.12); color: var(--muted); font-size: .8rem; line-height: 1.45;
+  text-align: center;
+}
 .conv-item {
   text-align: left; background: transparent; border: 1px solid transparent; color: var(--text);
   padding: .72rem .78rem; border-radius: 13px; cursor: pointer; transition: background .18s, border-color .18s;
@@ -372,6 +377,13 @@ button, input, textarea { font: inherit; }
 .empty-suggestions button:hover {
   border-color: rgba(124,108,255,.4); color: var(--text); background: rgba(124,108,255,.12);
   transform: translateY(-1px);
+}
+.empty-suggestions button:focus-visible {
+  outline: none; border-color: rgba(124,108,255,.55);
+  box-shadow: 0 0 0 3px rgba(124,108,255,.2); color: var(--text);
+}
+.side-brand img, .brand img, .topbar img, .empty img, .hero-chat-row .avatar {
+  background: #05060b;
 }
 
 .msg { display: flex; flex-direction: column; max-width: min(720px, 100%); animation: msgIn .3s var(--ease); }

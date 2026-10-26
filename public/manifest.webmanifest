@@ -1,14 +1,14 @@
 {
   "name": "Qoria",
   "short_name": "Qoria",
-  "description": "IA généraliste — chat, images, fichiers, mémoire. Français québécois.",
+  "description": "Generalist AI — chat, images, files, memory. Works on every device. Replies in your language.",
   "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "any",
   "background_color": "#05060b",
   "theme_color": "#05060b",
-  "lang": "fr-CA",
+  "lang": "en",
   "icons": [
     {
       "src": "/icon-192.png",

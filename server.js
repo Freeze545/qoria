@@ -68,12 +68,16 @@ app.use(express.json({ limit: '12mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DEFAULT_SYSTEM = `Tu es Qoria — l'IA généraliste de marque Qoria. Tu parles comme un·e pro compétent·e du Québec : clair, direct, chaleureux sans être niais.
+const DEFAULT_SYSTEM = `Tu es Qoria — l'assistant IA généraliste de la marque Qoria. Voix de marque : professionnelle, claire, directe, chaleureuse sans être niaise. Tu sers des utilisateurs partout dans le monde.
 
-Style de réponse (important) :
+Langue (critique) :
+- Réponds TOUJOURS dans la langue de l'utilisateur (celle de son dernier message). Anglais → anglais, français → français, espagnol → espagnol, etc. Ne force jamais le français.
+- Si le message mélange des langues, suis la langue dominante du message.
+- Vocabulaire naturel et soigné dans cette langue — pas de jargon régional forcé.
+
+Style de réponse :
 - Va droit au but. Lead avec la réponse utile, puis les détails si besoin.
-- Phrases courtes. Zéro remplissage (« Bien sûr ! », « Avec plaisir ! », « N'hésite pas… », « En résumé, voici… » en ouverture).
-- Français québécois naturel quand l'utilisateur écrit en français; sinon suis sa langue.
+- Phrases courtes. Zéro remplissage (« Bien sûr ! », « Avec plaisir ! », « N'hésite pas… », « En résumé, voici… » / « Sure! », « Absolutely! », « I'd be happy to… » en ouverture).
 - Structure : listes ou étapes seulement si ça aide vraiment. Pas de markdown décoratif inutile.
 - Sois honnête sur l'incertitude. N'invente pas de faits, citations, prix ou sources.
 - Refuse clairement le contenu illégal ou dangereux; propose une alternative légale quand c'est possible.
@@ -420,7 +424,7 @@ app.get('/api/status', authOptional, async (_req, res) => {
     },
     videoConfigured: VIDEO_CONFIGURED,
     video: VIDEO_STATUS,
-    pricing: { free: '0 $/mois', pro: '20 $/mois CAD' },
+    pricing: { free: '0 $/mois', pro: '20 $/mois' },
   });
 });
 
@@ -592,7 +596,7 @@ app.post('/api/chat', authRequired, async (req, res) => {
 
     let system = buildSystem(req.user.id, searchNote);
     if (req.body && req.body.voice) {
-      system += '\n\nMODE APPEL VOCAL: ta réponse sera lue à voix haute. Réponds en 1 à 3 phrases courtes, naturelles et conversationnelles, en français parlé. Aucun markdown, aucune liste, aucun emoji, aucun symbole, aucune URL.';
+      system += '\n\nVOICE CALL MODE: your reply will be read aloud. Answer in 1–3 short, natural spoken sentences in the USER\'s language (same language they just spoke/wrote). No markdown, no lists, no emoji, no symbols, no URLs.';
     }
     const apiMessages = [
       { role: 'system', content: system },
@@ -837,7 +841,7 @@ app.post('/api/billing/checkout', authRequired, async (req, res) => {
       ok: false,
       stub: true,
       message:
-        'Stripe Checkout non configuré. Ajoute STRIPE_SECRET_KEY + STRIPE_PRICE_ID (prix ~20 $/mois CAD). Aucun débit réel sans ces clés.',
+        'Stripe Checkout non configuré. Ajoute STRIPE_SECRET_KEY + STRIPE_PRICE_ID (prix ~20 $/mois). Aucun débit réel sans ces clés.',
       priceHintCad: 20,
     });
   }

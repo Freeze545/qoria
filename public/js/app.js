@@ -116,10 +116,19 @@
     const d = await api('/api/conversations');
     const list = $('convList');
     list.innerHTML = '';
-    (d.conversations || []).forEach((c) => {
+    const convs = d.conversations || [];
+    if (!convs.length) {
+      const empty = document.createElement('div');
+      empty.className = 'conv-empty';
+      empty.textContent = 'Aucune conversation pour l’instant. Lance-en une.';
+      list.appendChild(empty);
+      return;
+    }
+    const loc = preferredLang();
+    convs.forEach((c) => {
       const b = document.createElement('button');
       b.className = 'conv-item' + (c.id === conversationId ? ' active' : '');
-      b.innerHTML = `${escapeHtml(c.title || 'Conversation')}<small>${new Date(c.updatedAt || c.createdAt).toLocaleString('fr-CA')}</small>`;
+      b.innerHTML = `${escapeHtml(c.title || 'Conversation')}<small>${new Date(c.updatedAt || c.createdAt).toLocaleString(loc)}</small>`;
       b.onclick = () => openConv(c.id);
       list.appendChild(b);
     });
@@ -380,7 +389,7 @@
       return;
     }
     recognition = new SR();
-    recognition.lang = 'fr-CA';
+    recognition.lang = preferredLang();
     recognition.interimResults = true;
     recognition.onresult = (ev) => {
       let text = '';
@@ -674,27 +683,42 @@
   // Free browser TTS (Web Speech API). For a truly human voice, a paid TTS
   // (ElevenLabs / OpenAI TTS) would be required — see README "Voix".
   let bestVoice = null;
-  function pickVoice() {
+  function preferredLang() {
+    const nav = (navigator.language || 'en').replace('_', '-');
+    return nav;
+  }
+  function pickVoice(forText) {
     const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
-    const fr = vs.filter((v) => /^fr/i.test(v.lang));
-    if (!fr.length) return null;
+    if (!vs.length) return null;
+    const nav = preferredLang();
+    const navPrimary = nav.split('-')[0].toLowerCase();
+    // Light script detection so TTS follows the user's language, not French-only.
+    const sample = String(forText || '').slice(0, 80);
+    let want = navPrimary;
+    if (/[àâäéèêëïîôùûüç]/i.test(sample) || /\b(le|la|les|des|une|pour|avec|quoi|salut)\b/i.test(sample)) want = 'fr';
+    else if (/[áéíóúñ¿¡]/i.test(sample) || /\b(hola|gracias|por favor|qué)\b/i.test(sample)) want = 'es';
+    else if (/[äöüß]/i.test(sample)) want = 'de';
+    else if (/^[\x00-\x7F\s.,!?'"\-]+$/.test(sample) && /\b(the|and|you|what|please|hello)\b/i.test(sample)) want = 'en';
+    const pool = vs.filter((v) => (v.lang || '').toLowerCase().startsWith(want)) ;
+    const list = pool.length ? pool : vs.filter((v) => (v.lang || '').toLowerCase().startsWith(navPrimary));
+    const final = list.length ? list : vs;
     const score = (v) => {
       let s = 0;
-      const n = v.name.toLowerCase();
-      if (/premium|enhanced|améliorée|neural|natural|naturel/.test(n)) s += 100;
-      if (/online|siri/.test(n)) s += 60;
-      if (/google/.test(n)) s += 50;
-      if (/samantha|thomas|amélie|amelie|audrey|aurélie|denise|sylvie|antoine|marie/.test(n)) s += 30;
-      if (/fr[-_]ca/i.test(v.lang)) s += 15; else if (/fr[-_]fr/i.test(v.lang)) s += 10;
+      const n = (v.name || '').toLowerCase();
+      const lang = (v.lang || '').toLowerCase();
+      if (/premium|enhanced|améliorée|neural|natural|naturel|super/.test(n)) s += 100;
+      if (/online|siri|google|microsoft|apple/.test(n)) s += 50;
+      if (lang === nav.toLowerCase()) s += 40;
+      else if (lang.startsWith(want)) s += 20;
       if (/compact|espeak|robot|novelty/.test(n)) s -= 80;
       if (v.localService === false) s += 5;
       return s;
     };
-    return fr.sort((a, b) => score(b) - score(a))[0];
+    return final.slice().sort((a, b) => score(b) - score(a))[0] || null;
   }
   if (window.speechSynthesis) {
     bestVoice = pickVoice();
-    speechSynthesis.onvoiceschanged = () => { bestVoice = pickVoice(); };
+    speechSynthesis.onvoiceschanged = () => { bestVoice = pickVoice(''); };
   }
 
   // Split into short natural sentences; merge tiny fragments so it never sounds choppy.
@@ -721,14 +745,14 @@
       if (!clean) return resolve();
       const chunks = splitForSpeech(clean);
       const my = ++speakToken;
-      bestVoice = bestVoice || pickVoice();
+      bestVoice = pickVoice(clean) || bestVoice;
       setCallUI('speaking', 'Qoria parle…', clean.slice(0, 180));
       let i = 0;
       const next = () => {
         if (my !== speakToken || (typeof callActive !== 'undefined' && !callActive) || i >= chunks.length) return resolve();
         const u = new SpeechSynthesisUtterance(chunks[i++]);
         if (bestVoice) u.voice = bestVoice;
-        u.lang = bestVoice ? bestVoice.lang : 'fr-CA';
+        u.lang = bestVoice ? bestVoice.lang : preferredLang();
         u.rate = 0.9;
         u.pitch = 1.0;
         u.volume = 1;
@@ -784,7 +808,7 @@
     }
     stopCallRecognition();
     callRec = new SR();
-    callRec.lang = 'fr-CA';
+    callRec.lang = preferredLang();
     callRec.interimResults = true;
     callRec.continuous = false;
     let finalText = '';

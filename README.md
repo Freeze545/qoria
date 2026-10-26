@@ -1,7 +1,7 @@
 # Qoria
 
 IA généraliste grand public — chat, images, fichiers, mémoire, Free/Pro.  
-Interface française, pour tout le monde, toutes plateformes.
+UI soignée, pour tout le monde, toutes plateformes. Le chat répond dans la langue de l’utilisateur.
 
 ```bash
 cp .env.example .env   # ajoute GROQ_API_KEY
@@ -13,7 +13,7 @@ Voir [plan.md](./plan.md) pour architecture, coûts et clés.
 
 ## Voix (appel vocal)
 
-L'appel vocal utilise la synthèse vocale gratuite du navigateur (Web Speech API). Qoria choisit automatiquement la meilleure voix française disponible (Premium/Enhanced/Neural/Google/Samantha/Thomas/Amélie), parle à un débit de 0.9, découpe le texte en phrases courtes avec de petites pauses et retire emojis/markdown. La qualité dépend de l'appareil : sur iPhone/Mac, télécharger une voix « Améliorée/Premium » (Réglages > Accessibilité > Contenu énoncé > Voix) aide beaucoup. Pour une voix vraiment humaine, il faudrait un TTS payant (ElevenLabs ou OpenAI TTS).
+L'appel vocal utilise la synthèse vocale gratuite du navigateur (Web Speech API). Qoria choisit la meilleure voix disponible pour la langue du navigateur / de l'utilisateur (Premium/Enhanced/Neural quand présentes), débit ~0.9, phrases courtes, sans emoji/markdown. La qualité dépend de l'appareil — télécharger une voix améliorée dans les réglages système aide. Pour une voix vraiment humaine : TTS payant (ElevenLabs / OpenAI TTS).
 
 ## Images
 
@@ -44,7 +44,7 @@ E2E réel dès qu’une clé est présente : génération → fichier `/uploads/
 
 ## Chat
 
-Modèle Groq par défaut : `openai/gpt-oss-120b`. Prompt système Qoria : québécois, direct, peu de fluff. Température ~0.55, max tokens 1200.
+Modèle Groq par défaut : `openai/gpt-oss-120b`. Prompt système Qoria : professionnel, direct, peu de fluff — **répond toujours dans la langue de l’utilisateur**. Température ~0.55, max tokens 1200.
 
 ## Free vs Pro (limites)
 

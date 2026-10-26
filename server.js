@@ -49,6 +49,26 @@ const COOKIE = 'qoria_token';
 const VIDEO_STATUS = videoStatus();
 const VIDEO_CONFIGURED = Boolean(VIDEO_STATUS.configured);
 
+
+/** Resolve UI language for API error strings: X-Qoria-Lang wins, else Accept-Language. */
+function requestLang(req) {
+  const raw = String(req?.headers?.['x-qoria-lang'] || req?.query?.lang || '').trim().toLowerCase();
+  if (raw === 'en' || raw.startsWith('en')) return 'en';
+  if (raw === 'fr' || raw.startsWith('fr')) return 'fr';
+  const al = String(req?.headers?.['accept-language'] || '').toLowerCase();
+  if (!al) return 'fr';
+  // Prefer first tag
+  const first = al.split(',')[0].trim();
+  if (first.startsWith('en')) return 'en';
+  if (first.startsWith('fr')) return 'fr';
+  if (/\ben\b/.test(al) && !al.trim().startsWith('fr')) return 'en';
+  return 'fr';
+}
+
+function msg(lang, fr, en) {
+  return lang === 'en' ? en : fr;
+}
+
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
 
@@ -104,11 +124,20 @@ function authOptional(req, _res, next) {
 
 function authRequired(req, res, next) {
   authOptional(req, res, () => {
-    if (!req.user) return res.status(401).json({ error: 'Connexion requise', code: 'auth_required' });
+    const lang = requestLang(req);
+    if (!req.user) {
+      return res.status(401).json({
+        error: msg(lang, 'Connexion requise', 'Sign-in required'),
+        code: 'auth_required',
+      });
+    }
     try {
       if (!findUser(db.load(), req.user.id)) {
         res.clearCookie(COOKIE);
-        return res.status(401).json({ error: 'Session expirée — reconnecte-toi.', code: 'session_expired' });
+        return res.status(401).json({
+          error: msg(lang, 'Session expirée — reconnecte-toi.', 'Session expired — please sign in again.'),
+          code: 'session_expired',
+        });
       }
     } catch { /* ignore */ }
     next();
@@ -156,36 +185,65 @@ function limitsFor(user) {
   };
 }
 
-function proWeeklyResetMessage() {
-  return 'Limite hebdo Pro atteinte — revient lundi';
+function proWeeklyResetMessage(lang = 'fr') {
+  return msg(
+    lang,
+    'Limite hebdo Pro atteinte — revient lundi',
+    'Pro weekly limit reached — back Monday'
+  );
 }
 
-function friendlyProviderError(err) {
+function friendlyProviderError(err, lang = 'fr') {
   const raw = String(err?.message || err || '');
   const lower = raw.toLowerCase();
   if (/otpm|request too large|tokens? per minute|rate_limit|rate limit/i.test(raw)) {
-    return 'Message trop long pour le modèle (limite de tokens). Réessaie avec un texte plus court, ou une image plus petite.';
+    return msg(
+      lang,
+      'Message trop long pour le modèle (limite de tokens). Réessaie avec un texte plus court, ou une image plus petite.',
+      'Message too long for the model (token limit). Try a shorter text, or a smaller image.'
+    );
   }
   if (/context.?length|too many tokens|maximum context/i.test(raw)) {
-    return 'Le contexte est trop long. Commence une nouvelle conversation ou retire la pièce jointe.';
+    return msg(
+      lang,
+      'Le contexte est trop long. Commence une nouvelle conversation ou retire la pièce jointe.',
+      'Context is too long. Start a new conversation or remove the attachment.'
+    );
   }
   if (/insufficient_quota|billing|payment/i.test(lower)) {
-    return 'Capacité IA temporairement indisponible. Réessaie plus tard.';
+    return msg(
+      lang,
+      'Capacité IA temporairement indisponible. Réessaie plus tard.',
+      'AI capacity temporarily unavailable. Try again later.'
+    );
   }
   if (/clé manquante|api key|unauthorized|401/i.test(lower)) {
-    return 'Fournisseur IA non configuré pour le moment.';
+    return msg(
+      lang,
+      'Fournisseur IA non configuré pour le moment.',
+      'AI provider not configured right now.'
+    );
   }
-  // Strip raw JSON / verbose provider dumps
   if (raw.trim().startsWith('{') || raw.includes('"error"')) {
-    return 'Erreur du fournisseur IA. Réessaie dans un instant.';
+    return msg(
+      lang,
+      'Erreur du fournisseur IA. Réessaie dans un instant.',
+      'AI provider error. Try again in a moment.'
+    );
   }
-  return raw.slice(0, 180) || 'Erreur IA';
+  return raw.slice(0, 180) || msg(lang, 'Erreur IA', 'AI error');
 }
 
-function checkUsage(userId, kind = 'messages') {
+function checkUsage(userId, kind = 'messages', lang = 'fr') {
   const data = db.load();
   const user = findUser(data, userId);
-  if (!user) return { ok: false, error: 'Utilisateur introuvable', code: 'no_user' };
+  if (!user) {
+    return {
+      ok: false,
+      error: msg(lang, 'Utilisateur introuvable', 'User not found'),
+      code: 'no_user',
+    };
+  }
   const usage = db.getUsage(data, userId);
   const lims = limitsFor(user);
   const pro = isPro(user);
@@ -195,7 +253,7 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'pro_required',
-        error: 'Fonction Pro — passe à Pro pour débloquer',
+        error: msg(lang, 'Fonction Pro — passe à Pro pour débloquer', 'Pro feature — upgrade to Pro to unlock'),
         usage,
         limit: 0,
         limits: lims,
@@ -207,7 +265,9 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'weekly_limit',
-        error: proWeeklyResetMessage() + ` (ensemble ${limit}/semaine).`,
+        error:
+          proWeeklyResetMessage(lang) +
+          msg(lang, ` (ensemble ${limit}/semaine).`, ` (ensemble ${limit}/week).`),
         usage,
         limit,
         limits: lims,
@@ -224,7 +284,9 @@ function checkUsage(userId, kind = 'messages') {
         return {
           ok: false,
           code: 'weekly_limit',
-          error: proWeeklyResetMessage() + ` (images ${limit}/semaine).`,
+          error:
+            proWeeklyResetMessage(lang) +
+            msg(lang, ` (images ${limit}/semaine).`, ` (images ${limit}/week).`),
           usage,
           limit,
           limits: lims,
@@ -238,7 +300,11 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'image_limit',
-        error: `Limite d’images atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
+        error: msg(
+          lang,
+          `Limite d’images atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
+          `Image limit reached (${limit}/day on Free). Pro = generous weekly cap.`
+        ),
         usage,
         limit,
         limits: lims,
@@ -252,7 +318,11 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'video_unavailable',
-        error: 'Vidéo bientôt disponible — clé fournisseur requise.',
+        error: msg(
+          lang,
+          'Vidéo bientôt disponible — clé fournisseur requise.',
+          'Video coming soon — provider key required.'
+        ),
         usage,
         limit: lims.videos,
         limits: lims,
@@ -266,7 +336,9 @@ function checkUsage(userId, kind = 'messages') {
         return {
           ok: false,
           code: 'weekly_limit',
-          error: proWeeklyResetMessage() + ` (vidéos ${limit}/semaine).`,
+          error:
+            proWeeklyResetMessage(lang) +
+            msg(lang, ` (vidéos ${limit}/semaine).`, ` (videos ${limit}/week).`),
           usage,
           limit,
           limits: lims,
@@ -280,7 +352,11 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'video_limit',
-        error: `Limite vidéo atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
+        error: msg(
+          lang,
+          `Limite vidéo atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
+          `Video limit reached (${limit}/day on Free). Pro = generous weekly cap.`
+        ),
         usage,
         limit,
         limits: lims,
@@ -297,7 +373,9 @@ function checkUsage(userId, kind = 'messages') {
       return {
         ok: false,
         code: 'weekly_limit',
-        error: proWeeklyResetMessage() + ` (messages ${limit}/semaine).`,
+        error:
+          proWeeklyResetMessage(lang) +
+          msg(lang, ` (messages ${limit}/semaine).`, ` (messages ${limit}/week).`),
         usage,
         limit,
         limits: lims,
@@ -440,11 +518,11 @@ app.post('/api/auth/signup', (req, res) => {
     const password = String(req.body?.password || '');
     const name = String(req.body?.name || '').trim() || email.split('@')[0];
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ error: 'Courriel invalide' });
+      return res.status(400).json({ error: msg(requestLang(req), 'Courriel invalide', 'Invalid email') });
     }
-    if (password.length < 6) return res.status(400).json({ error: 'Mot de passe : 6 caractères minimum' });
+    if (password.length < 6) return res.status(400).json({ error: msg(requestLang(req), 'Mot de passe : 6 caractères minimum', 'Password: 6 characters minimum') });
     const data = db.load();
-    if (findUser(data, email)) return res.status(409).json({ error: 'Ce courriel est déjà inscrit' });
+    if (findUser(data, email)) return res.status(409).json({ error: msg(requestLang(req), 'Ce courriel est déjà inscrit', 'This email is already registered') });
     const user = {
       id: uuidv4(),
       email,
@@ -460,7 +538,7 @@ app.post('/api/auth/signup', (req, res) => {
     return res.json({ ok: true, user: publicUser(user), token });
   } catch (e) {
     console.error(e);
-    return res.status(500).json({ error: 'Erreur inscription' });
+    return res.status(500).json({ error: msg(requestLang(req), 'Erreur inscription', 'Signup error') });
   }
 });
 
@@ -470,7 +548,7 @@ app.post('/api/auth/login', (req, res) => {
   const data = db.load();
   const user = findUser(data, email);
   if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
-    return res.status(401).json({ error: 'Courriel ou mot de passe incorrect' });
+    return res.status(401).json({ error: msg(requestLang(req), 'Courriel ou mot de passe incorrect', 'Incorrect email or password') });
   }
   const token = signUser(user);
   res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', maxAge: 30 * 864e5, secure: process.env.NODE_ENV === 'production' });
@@ -485,7 +563,7 @@ app.post('/api/auth/logout', (_req, res) => {
 app.get('/api/auth/me', authRequired, (req, res) => {
   const data = db.load();
   const user = findUser(data, req.user.id);
-  if (!user) return res.status(401).json({ error: 'Session invalide' });
+  if (!user) return res.status(401).json({ error: msg(requestLang(req), 'Session invalide', 'Invalid session') });
   const usage = db.getUsage(data, user.id);
   res.json({
     ok: true,
@@ -521,7 +599,7 @@ app.post('/api/conversations', authRequired, (req, res) => {
 app.get('/api/conversations/:id/messages', authRequired, (req, res) => {
   const data = db.load();
   const conv = data.conversations.find((c) => c.id === req.params.id && c.userId === req.user.id);
-  if (!conv) return res.status(404).json({ error: 'Conversation introuvable' });
+  if (!conv) return res.status(404).json({ error: msg(requestLang(req), 'Conversation introuvable', 'Conversation not found') });
   const messages = data.messages
     .filter((m) => m.conversationId === conv.id)
     .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''));
@@ -531,7 +609,7 @@ app.get('/api/conversations/:id/messages', authRequired, (req, res) => {
 app.delete('/api/conversations/:id', authRequired, (req, res) => {
   const data = db.load();
   const conv = data.conversations.find((c) => c.id === req.params.id && c.userId === req.user.id);
-  if (!conv) return res.status(404).json({ error: 'Introuvable' });
+  if (!conv) return res.status(404).json({ error: msg(requestLang(req), 'Introuvable', 'Not found') });
   data.conversations = data.conversations.filter((c) => c.id !== conv.id);
   data.messages = data.messages.filter((m) => m.conversationId !== conv.id);
   db.save(data);
@@ -549,12 +627,13 @@ app.post('/api/chat', authRequired, async (req, res) => {
       temperature = 0.55,
     } = req.body || {};
 
+    const lang = requestLang(req);
     if (!Array.isArray(messages) || !messages.length) {
-      return res.status(400).json({ error: 'messages requis' });
+      return res.status(400).json({ error: msg(lang, 'messages requis', 'messages required') });
     }
 
     const kind = ensemble ? 'ensemble' : 'messages';
-    const checked = checkUsage(req.user.id, kind);
+    const checked = checkUsage(req.user.id, kind, lang);
     if (!checked.ok) {
       const status = checked.code === 'no_user' ? 401 : checked.code === 'pro_required' ? 403 : 429;
       return res.status(status).json({
@@ -673,7 +752,7 @@ app.post('/api/chat', authRequired, async (req, res) => {
     console.error('[Qoria] chat error:', err.message);
     const status = err.status || 500;
     return res.status(status >= 400 && status < 600 ? status : 500).json({
-      error: friendlyProviderError(err),
+      error: friendlyProviderError(err, requestLang(req)),
       code: 'provider_error',
     });
   }
@@ -682,12 +761,13 @@ app.post('/api/chat', authRequired, async (req, res) => {
 // ——— Images ———
 app.post('/api/image', authRequired, async (req, res) => {
   try {
+    const lang = requestLang(req);
     const prompt = String(req.body?.prompt || '').trim();
-    if (!prompt) return res.status(400).json({ error: 'prompt requis' });
+    if (!prompt) return res.status(400).json({ error: msg(lang, 'prompt requis', 'prompt required') });
     const data = db.load();
     const user = findUser(data, req.user.id);
-    if (!user) return res.status(401).json({ error: 'Session invalide' });
-    const checked = checkUsage(req.user.id, 'images');
+    if (!user) return res.status(401).json({ error: msg(lang, 'Session invalide', 'Invalid session') });
+    const checked = checkUsage(req.user.id, 'images', lang);
     if (!checked.ok) {
       return res.status(checked.code === 'no_user' ? 401 : 429).json({
         error: checked.error,
@@ -703,7 +783,7 @@ app.post('/api/image', authRequired, async (req, res) => {
     if (!out?.ok || !(out.url || out.b64)) {
       // Do NOT burn Free quota on failed / empty gens
       return res.status(502).json({
-        error: 'Génération image échouée — ton quota n’a pas été consommé. Réessaie.',
+        error: msg(lang, 'Génération image échouée — ton quota n’a pas été consommé. Réessaie.', 'Image generation failed — your quota was not used. Try again.'),
         code: 'image_failed',
       });
     }
@@ -718,7 +798,7 @@ app.post('/api/image', authRequired, async (req, res) => {
     console.error('[Qoria] image:', err.message);
     // Failures never commit usage
     return res.status(err.status || 500).json({
-      error: friendlyProviderError(err),
+      error: friendlyProviderError(err, requestLang(req)),
       code: err.status === 429 ? 'image_rate_limit' : 'image_failed',
       quotaCharged: false,
     });
@@ -728,7 +808,8 @@ app.post('/api/image', authRequired, async (req, res) => {
 // ——— Files ———
 app.post('/api/upload', authRequired, upload.single('file'), async (req, res) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'Fichier requis' });
+    const lang = requestLang(req);
+    if (!req.file) return res.status(400).json({ error: msg(lang, 'Fichier requis', 'File required') });
     const file = req.file;
     const url = `/uploads/${file.filename}`;
     const mime = file.mimetype || '';
@@ -741,7 +822,7 @@ app.post('/api/upload', authRequired, upload.single('file'), async (req, res) =>
       // ~1.5MB base64 payload cap — large iPhone photos blow Groq OTPM/context
       if (buf.length > 1.5 * 1024 * 1024) {
         return res.status(413).json({
-          error: 'Image trop lourde. Réessaie — Qoria compresse automatiquement; si ça continue, choisis une photo plus petite.',
+          error: msg(lang, 'Image trop lourde. Réessaie — Qoria compresse automatiquement; si ça continue, choisis une photo plus petite.', 'Image too large. Try again — Qoria compresses automatically; if it keeps failing, pick a smaller photo.'),
           code: 'image_too_large',
         });
       }
@@ -776,7 +857,7 @@ app.post('/api/upload', authRequired, upload.single('file'), async (req, res) =>
     return res.json({ ok: true, url, mime, name: file.originalname, size: file.size, analysis: { type: 'binary', text: null } });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ error: 'Échec téléversement' });
+    return res.status(500).json({ error: msg(lang, 'Échec téléversement', 'Upload failed') });
   }
 });
 
@@ -787,7 +868,7 @@ app.get('/api/memory', authRequired, (req, res) => {
 
 app.post('/api/memory', authRequired, (req, res) => {
   const text = String(req.body?.text || '').trim();
-  if (!text) return res.status(400).json({ error: 'texte requis' });
+  if (!text) return res.status(400).json({ error: msg(requestLang(req), 'texte requis', 'text required') });
   const data = db.load();
   const mem = { id: uuidv4(), userId: req.user.id, text: text.slice(0, 500), createdAt: new Date().toISOString() };
   data.memories.push(mem);
@@ -879,7 +960,7 @@ app.post('/api/billing/dev-pro', authRequired, (req, res) => {
   }
   const data = db.load();
   const user = findUser(data, req.user.id);
-  if (!user) return res.status(404).json({ error: 'Introuvable' });
+  if (!user) return res.status(404).json({ error: msg(requestLang(req), 'Introuvable', 'Not found') });
   user.plan = req.body?.plan === 'free' ? 'free' : 'pro';
   db.save(data);
   const token = signUser(user);
@@ -890,23 +971,32 @@ app.post('/api/billing/dev-pro', authRequired, (req, res) => {
 // Video — real E2E when a paid provider key is set; honest FR paywall otherwise.
 // Free 1/day · Pro unlimited. No free excellent path exists (Pollinations/fal/Runway/Luma/Sora all need keys).
 app.post('/api/video', authRequired, async (req, res) => {
+  const lang = requestLang(req);
   const prompt = String(req.body?.prompt || '').trim();
   const data = db.load();
   const user = findUser(data, req.user.id);
-  if (!user) return res.status(401).json({ error: 'Session invalide' });
+  if (!user) return res.status(401).json({ error: msg(lang, 'Session invalide', 'Invalid session') });
 
   const vstat = videoStatus();
   if (!vstat.configured) {
     const lims = limitsFor(user);
-    const msg = isPro(user)
-      ? 'Vidéo excellente nécessite une clé payante (FAL_KEY, POLLINATIONS_API_KEY + Pollen, RUNWAYML_API_SECRET, LUMA_API_KEY ou Sora). Aucun chemin gratuit viable pour une vraie vidéo.'
-      : 'Vidéo : pas encore de fournisseur branché. Free = 1 courte / jour · Pro = plafond hebdo généreux, dès qu’une clé (fal / Pollinations / Runway / Luma / Sora) est configurée. Aucun chemin gratuit excellent.';
+    const unavailableMsg = isPro(user)
+      ? msg(
+          lang,
+          'Vidéo excellente nécessite une clé payante (FAL_KEY, POLLINATIONS_API_KEY + Pollen, RUNWAYML_API_SECRET, LUMA_API_KEY ou Sora). Aucun chemin gratuit viable pour une vraie vidéo.',
+          'Excellent video needs a paid key (FAL_KEY, POLLINATIONS_API_KEY + Pollen, RUNWAYML_API_SECRET, LUMA_API_KEY, or Sora). No viable free path for real video.'
+        )
+      : msg(
+          lang,
+          'Vidéo : pas encore de fournisseur branché. Free = 1 courte / jour · Pro = plafond hebdo généreux, dès qu’une clé (fal / Pollinations / Runway / Luma / Sora) est configurée. Aucun chemin gratuit excellent.',
+          'Video: no provider connected yet. Free = 1 short / day · Pro = generous weekly cap once a key (fal / Pollinations / Runway / Luma / Sora) is configured. No excellent free path.'
+        );
     return res.status(501).json({
       ok: false,
       stub: true,
       code: 'video_unavailable',
-      error: msg,
-      message: msg,
+      error: unavailableMsg,
+      message: unavailableMsg,
       prompt,
       limits: lims,
       freeDaily: FREE_VIDEOS,
@@ -925,7 +1015,7 @@ app.post('/api/video', authRequired, async (req, res) => {
     });
   }
 
-  const checked = checkUsage(req.user.id, 'videos');
+  const checked = checkUsage(req.user.id, 'videos', lang);
   if (!checked.ok) {
     const status = checked.code === 'no_user' ? 401 : checked.code === 'pro_required' ? 403 : 429;
     return res.status(status).json({
@@ -943,7 +1033,7 @@ app.post('/api/video', authRequired, async (req, res) => {
     if (!out?.ok || !out.url) {
       return res.status(502).json({
         ok: false,
-        error: 'Génération vidéo échouée — ton quota n’a pas été consommé. Réessaie.',
+        error: msg(lang, 'Génération vidéo échouée — ton quota n’a pas été consommé. Réessaie.', 'Video generation failed — your quota was not used. Try again.'),
         code: 'video_failed',
       });
     }
@@ -964,7 +1054,7 @@ app.post('/api/video', authRequired, async (req, res) => {
     const status = err.status === 501 ? 501 : err.status === 402 ? 402 : err.status === 429 ? 429 : 502;
     return res.status(status).json({
       ok: false,
-      error: err.message || 'Génération vidéo échouée',
+      error: err.message || msg(lang, 'Génération vidéo échouée', 'Video generation failed'),
       code: err.code || (status === 501 ? 'video_unavailable' : 'video_failed'),
       stub: Boolean(err.stub),
       pricingUrl: '/pricing.html',

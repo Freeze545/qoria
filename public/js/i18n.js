@@ -67,6 +67,7 @@
       'home.pro.li3': 'Mode ensemble (2 modèles)',
       'home.pro.li4': 'Priorité modèles premium*',
       'home.pro.li5': 'Support prioritaire',
+      'home.pro.badge': 'Recommandé',
       'home.pro.cta': 'Passer à Pro',
       'home.pro.note':
         '*selon les clés API branchées · *vidéo quand le fournisseur est configuré · Pro n’est pas « sans limite absolue » — un plafond hebdo protège la qualité du service. Essai Pro 7 jours (carte plus tard) — bientôt.',
@@ -95,6 +96,7 @@
       'pricing.pro.li5': 'Support prioritaire',
       'pricing.pro.note':
         'Usage normal = tu ne le remarques pas. Si tu touches le plafond\u00a0: «\u00a0Limite hebdo Pro atteinte — revient lundi\u00a0».',
+      'pricing.pro.badge': 'Recommandé',
       'pricing.pro.cta': 'Passer à Pro',
       'pricing.stripe':
         'Stripe s’active dès que STRIPE_PRICE_ID est configuré. En mode test, Pro peut s’activer sans débit réel.<br /><strong style="color:var(--muted);font-weight:600">Bientôt</strong> — essai Pro 7 jours (carte enregistrée plus tard). Images & vidéo premium dépendent des clés API branchées; sans clé payante, la qualité média reste honnête, pas magique.',
@@ -169,6 +171,7 @@
       'app.voice.title': 'Appel Qoria',
       'app.voice.status': 'Préparation…',
       'app.voice.end': 'Terminer',
+      'app.voice.bargeHint': 'L’interruption (barge-in) fonctionne mieux dans Chrome.',
 
       // ——— app.js dynamic ———
       'js.proGate.default': 'Fonction Pro — passe à Pro pour débloquer',
@@ -289,6 +292,7 @@
       'home.pro.li3': 'Ensemble mode (2 models)',
       'home.pro.li4': 'Priority premium models*',
       'home.pro.li5': 'Priority support',
+      'home.pro.badge': 'Recommended',
       'home.pro.cta': 'Upgrade to Pro',
       'home.pro.note':
         '*depends on connected API keys · *video when a provider is configured · Pro is not “absolutely unlimited” — a weekly cap protects service quality. 7-day Pro trial (card later) — coming soon.',
@@ -316,6 +320,7 @@
       'pricing.pro.li5': 'Priority support',
       'pricing.pro.note':
         'Normal use = you barely notice. If you hit the cap: “Pro weekly limit reached — come back Monday.”',
+      'pricing.pro.badge': 'Recommended',
       'pricing.pro.cta': 'Upgrade to Pro',
       'pricing.stripe':
         'Stripe turns on once STRIPE_PRICE_ID is set. In test mode, Pro can activate with no real charge.<br /><strong style="color:var(--muted);font-weight:600">Coming soon</strong> — 7-day Pro trial (card saved later). Premium images & video depend on connected API keys; without a paid key, media quality stays honest, not magical.',
@@ -388,6 +393,7 @@
       'app.voice.title': 'Qoria call',
       'app.voice.status': 'Preparing…',
       'app.voice.end': 'End',
+      'app.voice.bargeHint': 'Barge-in (interrupt while Qoria speaks) works best in Chrome.',
 
       'js.proGate.default': 'Pro feature — upgrade to Pro to unlock',
       'js.sessionExpired': 'Session expired — please log in again.',

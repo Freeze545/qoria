@@ -216,8 +216,8 @@ button, input, textarea { font: inherit; }
   box-shadow: 0 0 0 1px rgba(124,108,255,.22), 0 28px 70px rgba(124,108,255,.2);
   background: linear-gradient(165deg, rgba(124,108,255,.16), rgba(18,22,40,.88));
 }
-.price-card.featured::before {
-  content: "Recommandé"; position: absolute; top: -0.7rem; right: 1.15rem;
+.price-card .price-badge {
+  position: absolute; top: -0.7rem; right: 1.15rem;
   font-size: .68rem; font-weight: 720; letter-spacing: .05em; text-transform: uppercase;
   padding: .28rem .7rem; border-radius: 999px; background: var(--grad); color: #fff;
   box-shadow: 0 6px 20px rgba(124,108,255,.4);
@@ -608,3 +608,5 @@ button, input, textarea { font: inherit; }
 @media (max-width: 520px) {
   .nav-actions .lang-toggle { display: inline-flex; }
 }
+
+.voice-hint { margin: .55rem 0 0; font-size: .72rem; color: var(--muted2); line-height: 1.4; text-align: center; }

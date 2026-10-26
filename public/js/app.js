@@ -1,7 +1,15 @@
 (() => {
   const token = () => localStorage.getItem('qoria_token') || '';
+  const uiLang = () => {
+    if (window.QoriaI18n && typeof QoriaI18n.getLang === 'function') {
+      const l = QoriaI18n.getLang();
+      if (l === 'en' || l === 'fr') return l;
+    }
+    return 'fr';
+  };
+
   const headers = () => {
-    const h = { 'Content-Type': 'application/json' };
+    const h = { 'Content-Type': 'application/json', 'X-Qoria-Lang': uiLang() };
     if (token()) h.Authorization = 'Bearer ' + token();
     return h;
   };
@@ -353,7 +361,10 @@
       const r = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
-        headers: token() ? { Authorization: 'Bearer ' + token() } : {},
+        headers: {
+          'X-Qoria-Lang': uiLang(),
+          ...(token() ? { Authorization: 'Bearer ' + token() } : {}),
+        },
         body: fd,
       });
       const d = await r.json();

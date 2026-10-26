@@ -590,6 +590,8 @@
       .slice(0, 600);
   }
 
+  // Free browser TTS (Web Speech API). For a truly human voice, a paid TTS
+  // (ElevenLabs / OpenAI TTS) would be required — see README "Voix".
   let bestVoice = null;
   function pickVoice() {
     const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
@@ -598,11 +600,12 @@
     const score = (v) => {
       let s = 0;
       const n = v.name.toLowerCase();
-      if (/fr[-_]ca/i.test(v.lang)) s += 30; else if (/fr[-_]fr/i.test(v.lang)) s += 20;
-      if (/natural|neural|online|premium|enhanced|siri/.test(n)) s += 50;
-      if (/google/.test(n)) s += 25;
-      if (/amélie|amelie|thomas|audrey|aurélie|denise|sylvie|antoine|jean|marie/.test(n)) s += 10;
-      if (/compact|espeak/.test(n)) s -= 40;
+      if (/premium|enhanced|améliorée|neural|natural|naturel/.test(n)) s += 100;
+      if (/online|siri/.test(n)) s += 60;
+      if (/google/.test(n)) s += 50;
+      if (/samantha|thomas|amélie|amelie|audrey|aurélie|denise|sylvie|antoine|marie/.test(n)) s += 30;
+      if (/fr[-_]ca/i.test(v.lang)) s += 15; else if (/fr[-_]fr/i.test(v.lang)) s += 10;
+      if (/compact|espeak|robot|novelty/.test(n)) s -= 80;
       if (v.localService === false) s += 5;
       return s;
     };
@@ -613,23 +616,47 @@
     speechSynthesis.onvoiceschanged = () => { bestVoice = pickVoice(); };
   }
 
+  // Split into short natural sentences; merge tiny fragments so it never sounds choppy.
+  function splitForSpeech(text) {
+    const parts = (text.match(/[^.!?;:]+[.!?;:]*/g) || [text]).map((x) => x.trim()).filter(Boolean);
+    const out = [];
+    for (const p of parts) {
+      const subs = p.length > 160 ? p.split(/,\s+/).map((x, i, arr) => (i < arr.length - 1 ? x + ',' : x)) : [p];
+      for (const sub of subs) {
+        const last = out[out.length - 1];
+        if (last && (sub.split(/\s+/).length < 4 || last.split(/\s+/).length < 4) && (last + ' ' + sub).length < 180) out[out.length - 1] = last + ' ' + sub;
+        else out.push(sub);
+      }
+    }
+    return out;
+  }
+
+  let speakToken = 0;
   function speakText(text) {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) return resolve();
       try { window.speechSynthesis.cancel(); } catch {}
       const clean = stripForSpeech(text);
       if (!clean) return resolve();
-      const u = new SpeechSynthesisUtterance(clean);
+      const chunks = splitForSpeech(clean);
+      const my = ++speakToken;
       bestVoice = bestVoice || pickVoice();
-      if (bestVoice) u.voice = bestVoice;
-      u.lang = bestVoice ? bestVoice.lang : 'fr-CA';
-      u.rate = 0.95;
-      u.pitch = 1.0;
-      u.volume = 1;
-      u.onend = () => resolve();
-      u.onerror = () => resolve();
       setCallUI('speaking', 'Qoria parle…', clean.slice(0, 180));
-      window.speechSynthesis.speak(u);
+      let i = 0;
+      const next = () => {
+        if (my !== speakToken || (typeof callActive !== 'undefined' && !callActive) || i >= chunks.length) return resolve();
+        const u = new SpeechSynthesisUtterance(chunks[i++]);
+        if (bestVoice) u.voice = bestVoice;
+        u.lang = bestVoice ? bestVoice.lang : 'fr-CA';
+        u.rate = 0.9;
+        u.pitch = 1.0;
+        u.volume = 1;
+        const done = () => setTimeout(next, /[.!?]$/.test(u.text) ? 220 : 120);
+        u.onend = done;
+        u.onerror = done;
+        window.speechSynthesis.speak(u);
+      };
+      next();
     });
   }
 
@@ -715,7 +742,7 @@
   function endVoiceCall() {
     callActive = false;
     stopCallRecognition();
-    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+    speakToken++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
     $('voiceCall')?.classList.remove('show', 'listening', 'speaking');
     $('btnVoiceCall')?.classList.remove('live');
   }

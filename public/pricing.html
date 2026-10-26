@@ -67,5 +67,27 @@
     </section>
   </div>
   <script src="/js/sw-boot.js" defer></script>
+  <script>
+    const token = localStorage.getItem('qoria_token');
+    const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
+    const btnPro = document.getElementById('btnPro');
+    const billMsg = document.getElementById('billMsg');
+    if (btnPro) {
+      btnPro.onclick = async () => {
+        if (billMsg) billMsg.textContent = '…';
+        if (!token) { location.href = '/login.html'; return; }
+        const lang = (window.QoriaI18n && QoriaI18n.getLang && QoriaI18n.getLang()) || 'fr';
+        const r = await fetch('/api/billing/checkout', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'X-Qoria-Lang': lang },
+          body: JSON.stringify({ devUpgrade: true })
+        });
+        const d = await r.json().catch(() => ({}));
+        if (d.url) { location.href = d.url; return; }
+        if (billMsg) billMsg.textContent = d.message || (d.ok ? t('pricing.bill.proOk') : t('pricing.bill.stub'));
+        if (d.ok && d.stub) setTimeout(() => location.href = '/app.html', 800);
+      };
+    }
+  </script>
 </body>
 </html>

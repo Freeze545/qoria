@@ -1,7 +1,7 @@
 /* Qoria — aggressive SW update + one soft reload on new shell */
 (function () {
   if (!('serviceWorker' in navigator)) return;
-  var SHELL = 'qoria-shell-v10';
+  var SHELL = 'qoria-shell-v11';
   var reloading = false;
 
   function onceReload(reason) {

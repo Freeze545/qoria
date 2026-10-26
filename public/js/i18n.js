@@ -218,7 +218,6 @@
       'js.prov.missing': 'clé manquante',
       'js.prov.testing': 'Test…',
       'js.prov.retest': 'Relancer les tests',
-      'js.call.preparing': 'Préparation…',
     },
 
     en: {
@@ -425,7 +424,6 @@
       'js.prov.missing': 'key missing',
       'js.prov.testing': 'Testing…',
       'js.prov.retest': 'Re-run tests',
-      'js.call.preparing': 'Preparing…',
     },
   };
 

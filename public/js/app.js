@@ -761,25 +761,35 @@
     return out;
   }
 
-  /** Interrupt keywords always count as barge-in (even short). */
-  function isInterruptWord(raw) {
-    return /^(stop|arr[eè]te|arr[eê]tez|attends?|wait|hey|allo|all[oô]|silence|chut|enough|basta)\b/i.test(String(raw || '').trim());
+  /** Hard stop commands — cut TTS, do NOT send to the model. */
+  function isInterruptCommand(raw) {
+    const text = String(raw || '').trim().toLowerCase();
+    if (!text) return false;
+    // Whole utterance is a stop command (allow trailing punctuation)
+    if (/^(stop|arr[eè]te|arr[eê]tez|arr[eè]te[- ]toi|tais[- ]toi|silence|chut|enough|basta|wait|attends?|attendez)[\s.!?]*$/i.test(text)) return true;
+    // Starts with stop + short tail ("stop s'il te plaît")
+    if (/^(stop|arr[eè]te|arr[eê]tez|silence|chut)\b.{0,24}$/i.test(text)) return true;
+    return false;
   }
 
-  /** True speech vs noise/music/echo: need letters, min length, optional confidence. */
-  function isRealSpeech(raw, confidence) {
+  /**
+   * User mic speech vs TV/music noise.
+   * During TTS we ONLY trust interrupt commands (see onresult) — TV dialogue
+   * must not cancel speech. When idle, require a stronger utterance.
+   */
+  function isUserUtterance(raw, confidence) {
     const text = String(raw || '').trim();
     if (!text) return false;
-    if (isInterruptWord(text)) return true;
+    if (isInterruptCommand(text)) return true;
     const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
-    if (letters < 4) return false;
     const words = text.split(/\s+/).filter((w) => /[\p{L}\p{N}]{2,}/u.test(w));
-    if (words.length < 1) return false;
-    // Single very short token is usually noise / TTS echo fragment
-    if (words.length === 1 && words[0].length < 4) return false;
-    // Reject pure fillers (not interrupt words)
-    if (/^(um+|uh+|ah+|eh+|hmm+|mm+|euh+|hein+|ok|okay)\.?$/i.test(text)) return false;
-    if (typeof confidence === 'number' && !Number.isNaN(confidence) && confidence > 0 && confidence < 0.35) return false;
+    // Need a short intentional phrase (not a random TV fragment)
+    if (words.length < 2 && letters < 10) return false;
+    if (words.length < 2) return false;
+    if (letters < 8) return false;
+    if (/^(um+|uh+|ah+|eh+|hmm+|mm+|euh+|hein+|ok|okay|oui|non|yes|no)\.?$/i.test(text)) return false;
+    // Prefer decent confidence when the engine provides it
+    if (typeof confidence === 'number' && !Number.isNaN(confidence) && confidence > 0 && confidence < 0.55) return false;
     return true;
   }
 
@@ -788,15 +798,22 @@
       const syn = window.speechSynthesis;
       if (!syn) return;
       syn.cancel();
-      // iOS Safari often keeps speaking after cancel — pause + empty utterance clears queue
       try { syn.pause(); } catch {}
       try { syn.cancel(); } catch {}
       try {
-        const u = new SpeechSynthesisUtterance('');
+        const u = new SpeechSynthesisUtterance('\u200b');
         u.volume = 0;
+        u.rate = 10;
         syn.speak(u);
         syn.cancel();
       } catch {}
+      // Second tick — iOS sometimes resumes the old queue
+      setTimeout(() => {
+        try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+      }, 40);
+      setTimeout(() => {
+        try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+      }, 120);
     } catch {}
   }
 
@@ -808,21 +825,22 @@
   }
 
   let speakToken = 0;
+  let lastSpokenPlain = '';
   function speakText(text) {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) return resolve();
-      try { window.speechSynthesis.cancel(); } catch {}
+      hardCancelTTS();
       const clean = stripForSpeech(text);
       if (!clean) return resolve();
       const chunks = splitForSpeech(clean);
       const my = ++speakToken;
+      lastSpokenPlain = clean.toLowerCase();
       bestVoice = pickVoice(clean) || bestVoice;
       callSpeaking = true;
       bargeArmed = false;
       setCallUI('speaking', t('js.call.speaking'), clean.slice(0, 180));
-      // Arm barge-in after a short delay so TTS echo into the mic is ignored
-      setTimeout(() => { if (my === speakToken && callActive) bargeArmed = true; }, 280);
-      // Keep / restart recognition during TTS for barge-in (Safari often dies mid-utterance)
+      // Longer arm so TV/echo don't false-trigger in the first beat
+      setTimeout(() => { if (my === speakToken && callActive) bargeArmed = true; }, 450);
       if (callActive) startCallListen({ duringSpeech: true, forceRestart: !callListening });
       let i = 0;
       const next = () => {
@@ -839,10 +857,13 @@
         u.rate = 0.9;
         u.pitch = 1.0;
         u.volume = 1;
-        const done = () => setTimeout(next, /[.!?]$/.test(u.text) ? 220 : 120);
+        const done = () => {
+          if (my !== speakToken) return resolve();
+          setTimeout(next, /[.!?]$/.test(u.text) ? 220 : 120);
+        };
         u.onend = done;
         u.onerror = done;
-        window.speechSynthesis.speak(u);
+        try { window.speechSynthesis.speak(u); } catch { return resolve(); }
       };
       next();
     });
@@ -851,7 +872,16 @@
   async function voiceSend(text) {
     const cleaned = String(text || '').trim();
     if (!cleaned || !callActive) return;
+    // Never send pure stop commands to the model (avoids "continuing old topic")
+    if (isInterruptCommand(cleaned)) {
+      cancelSpeaking();
+      setCallUI('listening', t('js.call.yourTurn'), cleaned);
+      bargeBusy = false;
+      if (callActive && !callListening) startCallListen({ forceRestart: true });
+      return;
+    }
     bargeBusy = true;
+    cancelSpeaking(); // ensure old TTS is dead before new reply
     pushBubble('user', cleaned);
     history.push({ role: 'user', content: cleaned });
     setCallUI('speaking', t('js.call.thinking'), cleaned);
@@ -871,27 +901,51 @@
       if (d.usage) updateUsage(d.usage, d.limits);
       loadConvs();
       bargeBusy = false;
+      if (!callActive) return;
       await speakText(d.content);
     } catch (err) {
       handleApiError(err);
       bargeBusy = false;
-      await speakText(err.message || t('js.call.error'));
+      if (callActive) await speakText(err.message || t('js.call.error'));
     } finally {
       bargeBusy = false;
       if (callActive && !callListening) startCallListen();
     }
   }
 
-  function handleBargeIn(said) {
+  /** Looks like our own TTS echoed back into the mic */
+  function looksLikeEcho(said) {
+    const s = String(said || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    if (!s || !lastSpokenPlain) return false;
+    if (lastSpokenPlain.includes(s) && s.length >= 6) return true;
+    if (s.length >= 12 && lastSpokenPlain.slice(0, 80).includes(s.slice(0, 24))) return true;
+    return false;
+  }
+
+  function handleStopCommand(said) {
+    if (!callActive) return;
+    cancelSpeaking();
+    bargeBusy = false;
+    setCallUI('listening', t('js.call.yourTurn'), said || 'stop');
+    // Do not voiceSend — just listen for the next real question
+    if (!callListening) startCallListen({ forceRestart: true });
+  }
+
+  function handleBargeIn(said, confidence) {
     if (!callActive || bargeBusy) return;
-    if (!isRealSpeech(said)) return;
-    // Only interrupt while speaking (or always accept when listening idle)
-    if (callSpeaking) {
-      if (!bargeArmed) return; // echo guard
-      cancelSpeaking();
+    const text = String(said || '').trim();
+    if (!text) return;
+    if (looksLikeEcho(text)) return;
+    if (isInterruptCommand(text)) {
+      handleStopCommand(text);
+      return;
     }
-    setCallUI('listening', t('js.call.yourTurn'), said);
-    voiceSend(said);
+    // While Qoria is speaking: ONLY interrupt commands cut TTS.
+    // Background TV dialogue must not cancel or hijack the turn.
+    if (callSpeaking) return;
+    if (!isUserUtterance(text, confidence)) return;
+    setCallUI('listening', t('js.call.yourTurn'), text);
+    voiceSend(text);
   }
 
   function stopCallRecognition() {
@@ -939,25 +993,27 @@
       if (!callSpeaking) {
         setCallUI('listening', t('js.call.yourTurn'), display);
       } else if (display) {
-        // Show interim while Qoria talks so user sees barge-in is live
         if ($('voiceTranscript')) $('voiceTranscript').textContent = display;
       }
-      // Cut TTS as soon as we hear real speech (interim) — don't wait for final (iOS lag)
-      if (callSpeaking && bargeArmed && !bargeBusy && display && isRealSpeech(display, conf)) {
-        cancelSpeaking();
-        setCallUI('listening', t('js.call.yourTurn'), display);
+      // WHILE speaking: only STOP commands may cut (interim OK) — never TV dialogue
+      if (callSpeaking && bargeArmed && !bargeBusy && display && isInterruptCommand(display)) {
+        handleStopCommand(display);
+        return;
       }
-      // Prefer final transcript for barge-in / send
+      // FINAL only for normal user turns (idle listening)
       if (finalText.trim()) {
         const said = finalText.trim();
         finalText = '';
-        if (callSpeaking || (speakToken && !callSpeaking && bargeBusy === false && display)) {
-          // If we already cancelled on interim, still send the final text
-          if (callSpeaking) handleBargeIn(said);
-          else if (!bargeBusy && isRealSpeech(said, conf)) voiceSend(said);
-        } else if (!bargeBusy) {
-          if (isRealSpeech(said, conf)) voiceSend(said);
+        if (looksLikeEcho(said)) return;
+        if (isInterruptCommand(said)) {
+          handleStopCommand(said);
+          return;
         }
+        if (callSpeaking) {
+          // Non-stop finals during TTS are ignored (TV / noise)
+          return;
+        }
+        if (!bargeBusy && isUserUtterance(said, conf)) voiceSend(said);
       }
     };
     callRec.onerror = (ev) => {

@@ -1,7 +1,7 @@
 # Qoria
 
 IA généraliste grand public — chat, images, fichiers, mémoire, Free/Pro.  
-Interface française (Québec), mobile-first.
+Interface française, pour tout le monde, toutes plateformes.
 
 ```bash
 cp .env.example .env   # ajoute GROQ_API_KEY

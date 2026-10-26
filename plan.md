@@ -1,6 +1,6 @@
 # Qoria — plan produit & architecture
 
-**Marque :** Qoria (IA généraliste grand public, UI française Québec, toutes plateformes, mobile-friendly)  
+**Marque :** Qoria (IA généraliste grand public, UI française, pour tout le monde, toutes plateformes, mobile-friendly)  
 **Pas DevisNord, pas Micheal commercial.**  
 **Repo :** Freeze545/qoria · hébergement Render (free → starter)
 
@@ -82,7 +82,7 @@ Message FR au plafond : « Limite hebdo Pro atteinte — revient lundi ». Pas d
 
 ## Acquisition (esquisse)
 
-1. Landing FR claire + partage X/TikTok « IA québécoise »
+1. Landing FR claire + partage X/TikTok « ton IA pour tout »
 2. Free généreux mais plafonné → friction douce vers Pro 20 $/mois CAD
 3. SEO pages cas d’usage (études, code, écriture)
 4. Pas de dark patterns ; transparence « multi-modèles »

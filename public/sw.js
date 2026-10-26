@@ -1,5 +1,5 @@
 /* Qoria — offline shell only (static assets). Never caches /api/* (auth/chat). */
-const CACHE = 'qoria-shell-v3';
+const CACHE = 'qoria-shell-v4';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -19,6 +19,14 @@ const PRECACHE = [
   '/icon-512.png',
 ];
 
+// Always try network first for these (avoid stale i18n/HTML flash)
+function isNetworkFirst(pathname) {
+  if (pathname === '/' || pathname.endsWith('.html')) return true;
+  if (pathname === '/js/i18n.js' || pathname === '/js/app.js' || pathname === '/sw.js') return true;
+  if (pathname === '/css/styles.css') return true;
+  return false;
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE).then((c) => c.addAll(PRECACHE)).then(() => self.skipWaiting())
@@ -33,13 +41,31 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') self.skipWaiting();
+});
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
-  // Never touch API / uploads — auth & live data
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/uploads/')) return;
+
+  if (isNetworkFirst(url.pathname)) {
+    event.respondWith(
+      fetch(req)
+        .then((res) => {
+          if (res && res.ok && res.type === 'basic') {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+          }
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
 
   event.respondWith(
     caches.match(req).then((hit) => {

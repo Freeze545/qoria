@@ -610,3 +610,9 @@ button, input, textarea { font: inherit; }
 }
 
 .voice-hint { margin: .55rem 0 0; font-size: .72rem; color: var(--muted2); line-height: 1.4; text-align: center; }
+
+/* Hide translated nodes until QoriaI18n.apply() — avoids FR/EN flash & raw keys */
+html:not(.i18n-ready) [data-i18n],
+html:not(.i18n-ready) [data-i18n-html] {
+  visibility: hidden;
+}

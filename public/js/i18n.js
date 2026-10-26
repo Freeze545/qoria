@@ -471,10 +471,15 @@
 
   let lang = detectLang();
 
+  function hasKey(key) {
+    return !!(dict[lang] && dict[lang][key] != null) || !!(dict.fr && dict.fr[key] != null);
+  }
+
   function t(key, vars) {
     const table = dict[lang] || dict.fr;
     let s = table[key];
-    if (s == null) s = (dict.fr && dict.fr[key]) || key;
+    if (s == null) s = (dict.fr && dict.fr[key]);
+    if (s == null) s = key; // callers that expect a string (JS UI)
     if (vars && typeof s === 'string') {
       s = s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : ''));
     }
@@ -494,14 +499,14 @@
     const scope = root || document;
     scope.querySelectorAll('[data-i18n]').forEach((el) => {
       const key = el.getAttribute('data-i18n');
-      if (!key) return;
+      if (!key || !hasKey(key)) return; // keep HTML fallback — never flash raw key
       const val = t(key);
       if (el.tagName === 'TITLE') el.textContent = val;
       else el.textContent = val;
     });
     scope.querySelectorAll('[data-i18n-html]').forEach((el) => {
       const key = el.getAttribute('data-i18n-html');
-      if (key) el.innerHTML = t(key);
+      if (key && hasKey(key)) el.innerHTML = t(key);
     });
     scope.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
       const key = el.getAttribute('data-i18n-placeholder');
@@ -605,6 +610,7 @@
     }
     bindToggles();
     apply();
+    try { document.documentElement.classList.add('i18n-ready'); } catch {}
   }
 
   if (document.readyState === 'loading') {

@@ -23,6 +23,14 @@ services:
         value: "1"
       - key: ENSEMBLE_DAILY_CAP
         value: "10"
+      - key: PRO_WEEKLY_MESSAGES
+        value: "2500"
+      - key: PRO_WEEKLY_IMAGES
+        value: "150"
+      - key: PRO_WEEKLY_VIDEOS
+        value: "30"
+      - key: PRO_WEEKLY_ENSEMBLE
+        value: "40"
       - key: CHAT_MAX_TOKENS
         value: "1200"
       - key: VISION_MAX_TOKENS

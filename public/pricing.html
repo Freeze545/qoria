@@ -1,9 +1,15 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr-CA">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Tarifs — Qoria</title>
+  <meta name="theme-color" content="#05060b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Qoria" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
@@ -11,7 +17,7 @@
 <body>
   <div class="container">
     <nav class="nav">
-      <a class="brand" href="/"><img src="/logo.jpg" alt="" /><span>Qoria</span></a>
+      <a class="brand" href="/"><img src="/logo.jpg" alt="Qoria" /><span>Qoria</span></a>
       <div class="nav-actions">
         <a class="btn" href="/app.html">App</a>
         <a class="btn btn-primary" href="/signup.html">S’inscrire</a>
@@ -19,10 +25,9 @@
     </nav>
     <section class="pricing" style="padding-top:2rem">
       <p class="section-label">Tarifs</p>
-      <h2 class="section-title">Free & Pro</h2>
-      <p style="text-align:center;color:var(--muted);max-width:32rem;margin:0 auto 1.5rem">
-        Pro à 20&nbsp;$/mois CAD. Le paiement Stripe s’active dès que STRIPE_PRICE_ID est configuré.
-        En mode test, tu peux activer Pro sans débit réel.
+      <h2 class="section-title">Free &amp; Pro</h2>
+      <p class="pricing-lead">
+        Free pour explorer. Pro pour créer beaucoup plus — avec un <strong style="color:var(--text);font-weight:600">plafond hebdo généreux</strong> qui garde le service stable (comme un cap soft, pas un mur quotidien).
       </p>
       <div class="price-grid">
         <div class="card price-card">
@@ -30,28 +35,38 @@
           <div class="price">0 $<span>/mois</span></div>
           <ul>
             <li>Chat illimité</li>
+            <li>Appel vocal</li>
             <li>3 créations d’image / jour</li>
             <li>1 vidéo courte / jour*</li>
-            <li>Mémoire & fichiers</li>
+            <li>Mémoire &amp; fichiers</li>
           </ul>
-          <p style="color:var(--muted);font-size:.75rem;margin:.4rem 0 0">*Vidéo excellente = clé payante (fal / Pollinations / Runway / Luma / Sora). Pas de chemin gratuit viable.</p>
-          <a class="btn" href="/signup.html" style="width:100%">Gratuit</a>
+          <p class="price-footnote">*Vidéo excellente = clé fournisseur (fal / Pollinations / Runway / Luma / Sora). Pas de chemin gratuit excellent.</p>
+          <a class="btn" href="/signup.html" style="width:100%;margin-top:.8rem">Continuer gratuit</a>
         </div>
         <div class="card price-card featured">
           <h3>Pro</h3>
           <div class="price">20 $<span>/mois CAD</span></div>
           <ul>
-            <li>Chat, images & vidéo illimités</li>
+            <li>Chat &amp; médias très généreux au quotidien</li>
+            <li>Plafond hebdo soft — reset chaque lundi</li>
             <li>Mode ensemble (2 modèles)</li>
-            <li>Plafonds anti-dépassement coûts API</li>
+            <li>Priorité aux modèles premium*</li>
+            <li>Support prioritaire</li>
           </ul>
-          <button class="btn btn-primary" id="btnPro" style="width:100%">Passer à Pro</button>
-          <p id="billMsg" style="color:var(--muted);font-size:.8rem;margin-top:.6rem"></p>
+          <p class="price-footnote">Usage normal = tu ne le remarques pas. Si tu touches le plafond&nbsp;: «&nbsp;Limite hebdo Pro atteinte — revient lundi&nbsp;».</p>
+          <button class="btn btn-primary" id="btnPro" style="width:100%;margin-top:.8rem">Passer à Pro</button>
+          <p id="billMsg" style="color:var(--muted);font-size:.8rem;margin-top:.65rem;text-align:center"></p>
         </div>
       </div>
+      <p style="text-align:center;color:var(--muted2);font-size:.78rem;margin:1.75rem auto 0;max-width:28rem;line-height:1.5">
+        Stripe s’active dès que STRIPE_PRICE_ID est configuré. En mode test, Pro peut s’activer sans débit réel.
+      </p>
     </section>
   </div>
   <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
     const token = localStorage.getItem('qoria_token');
     btnPro.onclick = async () => {
       billMsg.textContent = '…';

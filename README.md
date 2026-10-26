@@ -29,7 +29,7 @@ L'appel vocal utilise la synthèse vocale gratuite du navigateur (Web Speech API
 ## Vidéo
 
 **Aucun chemin gratuit excellent** (Pollinations video, fal, Runway, Luma, Sora = tous payants / clé requise).  
-Sans clé : message FR honnête + paywall Free **1/jour** vs Pro **illimité** une fois branché.
+Sans clé : message FR honnête + Free **1/jour** vs Pro **plafond hebdo généreux** une fois branché.
 
 | `VIDEO_PROVIDER` | Clé | Coût approx. / clip 5s |
 |------------------|-----|-------------------------|
@@ -45,3 +45,19 @@ E2E réel dès qu’une clé est présente : génération → fichier `/uploads/
 ## Chat
 
 Modèle Groq par défaut : `openai/gpt-oss-120b`. Prompt système Qoria : québécois, direct, peu de fluff. Température ~0.55, max tokens 1200.
+
+## Free vs Pro (limites)
+
+| | Free | Pro |
+|--|------|-----|
+| Chat | Illimité | Plafond hebdo soft (`PRO_WEEKLY_MESSAGES`, défaut 2500) |
+| Images | 3 / jour | Soft hebdo (`PRO_WEEKLY_IMAGES`, défaut 150) |
+| Vidéo | 1 / jour* | Soft hebdo (`PRO_WEEKLY_VIDEOS`, défaut 30) |
+| Ensemble | — | Soft hebdo (`PRO_WEEKLY_ENSEMBLE`, défaut 40) |
+
+Semaine calendaire **lundi → dimanche** (America/Toronto). Au plafond : « Limite hebdo Pro atteinte — revient lundi ».
+Usage Pro normal ne touche presque jamais le plafond — c’est un filet de sécurité coûts, pas un quota Free déguisé.
+
+## PWA
+
+`manifest.webmanifest` + `apple-touch-icon` + service worker shell (`sw.js`, assets statiques seulement — **jamais** `/api/*`). Sur iPhone : Safari → Partager → Sur l’écran d’accueil.

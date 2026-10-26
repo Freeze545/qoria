@@ -1,12 +1,19 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr-CA">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
   <title>Qoria</title>
+  <meta name="description" content="Chat Qoria — IA généraliste mobile." />
   <meta name="theme-color" content="#05060b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Qoria" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
@@ -18,7 +25,7 @@
         <img src="/logo.jpg" alt="Qoria" />
         <div>
           <strong>Qoria</strong>
-          <div class="chip" id="planChip">Free</div>
+          <div class="chip" id="planChip">FREE</div>
         </div>
       </div>
       <button class="btn btn-primary" id="btnNew" style="width:100%">＋ Nouvelle conversation</button>
@@ -35,16 +42,29 @@
     <main class="main">
       <header class="topbar">
         <button class="icon-btn mobile-only" id="btnMenu" aria-label="Menu">☰</button>
-        <img src="/logo.jpg" alt="" width="28" height="28" style="border-radius:8px;object-fit:cover" />
+        <img src="/logo.jpg" alt="" width="28" height="28" style="border-radius:8px;object-fit:cover;box-shadow:0 0 0 1px rgba(255,255,255,.1)" />
         <h1>Qoria</h1>
         <button class="icon-btn" id="btnMemoryTop" title="Mémoire">🧠</button>
       </header>
 
+      <div class="pro-cta-bar" id="proCtaBar">
+        <span><strong>Pro</strong> — plus d’images &amp; vidéo, plafond hebdo généreux</span>
+        <a href="/pricing.html">Voir →</a>
+      </div>
+
       <div class="messages" id="messages">
         <div class="empty" id="empty">
-          <img src="/logo.jpg" alt="" />
-          <h2 style="color:var(--text);margin:.2rem 0">Salut, je suis Qoria</h2>
-          <p>Pose une question, lance un appel vocal, génère une image, ou joins un fichier.</p>
+          <div class="empty-logo-wrap">
+            <img src="/logo.jpg" alt="" />
+          </div>
+          <h2>Salut, je suis Qoria</h2>
+          <p>Pose une question, lance un appel vocal, génère une image, ou joins un fichier. Clair, direct, en français.</p>
+          <div class="empty-suggestions" id="emptySuggestions">
+            <button type="button" data-prompt="Explique-moi la photosynthèse simplement">Expliquer simplement</button>
+            <button type="button" data-prompt="Écris un message poli pour reporter une réunion">Écrire un message</button>
+            <button type="button" data-prompt="Génère une image : café montréalais le matin, lumière douce">Créer une image</button>
+            <button type="button" data-prompt="Aide-moi à planifier ma semaine">Planifier ma semaine</button>
+          </div>
         </div>
       </div>
 
@@ -113,7 +133,6 @@
     </div>
   </div>
 
-
   <div class="voice-call" id="voiceCall" role="dialog" aria-modal="true" aria-labelledby="voiceCallTitle">
     <div class="voice-call-card">
       <div class="voice-orb" aria-hidden="true"></div>
@@ -127,5 +146,10 @@
   </div>
 
   <script src="/js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>

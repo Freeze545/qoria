@@ -1,12 +1,19 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr-CA">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Qoria — Ton IA pour tout</title>
-  <meta name="description" content="Qoria est une IA généraliste : chat, appel vocal, images, fichiers et mémoire. Interface française, mobile-first." />
+  <meta name="description" content="Qoria : chat, appel vocal, images, fichiers et mémoire. Interface française premium, mobile-first. Free généreux · Pro avec plafond hebdo soft." />
   <meta name="theme-color" content="#05060b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Qoria" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -27,12 +34,12 @@
     </nav>
 
     <section class="hero">
-      <div class="hero-badge">✦ IA généraliste · Québec · Appel vocal</div>
+      <div class="hero-badge">✦ IA généraliste · Québec · Sur ton iPhone</div>
       <h1>Réfléchis, crée et avance — avec une IA à ton image.</h1>
-      <p>Chat, appel vocal, images, fichiers et mémoire. Une interface française premium. Plusieurs modèles sous le capot, un seul nom&nbsp;: Qoria.</p>
+      <p>Chat, appel vocal, images, fichiers et mémoire. Une interface française soignée. Plusieurs modèles sous le capot, un seul nom&nbsp;: Qoria.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="/signup.html">Créer un compte gratuit</a>
-        <a class="btn" href="/app.html">Ouvrir l’app</a>
+        <a class="btn" href="/pricing.html">Voir Free &amp; Pro</a>
       </div>
       <div class="hero-visual" aria-hidden="true">
         <div class="hero-visual-inner">
@@ -50,15 +57,16 @@
     <section class="features" id="features">
       <div class="card"><div class="icon-pill">💬</div><h3>Chat intelligent</h3><p>Questions, raisonnement et aide au quotidien — en français québécois naturel.</p></div>
       <div class="card"><div class="icon-pill">📞</div><h3>Appel vocal</h3><p>Parle à Qoria et entends la réponse à voix haute. Mode conversation mains libres.</p></div>
-      <div class="card"><div class="icon-pill">✨</div><h3>Images</h3><p>Génère des visuels en un prompt — 3/jour en Free, illimité en Pro.</p></div>
-      <div class="card"><div class="icon-pill">📎</div><h3>Fichiers & vision</h3><p>Photo, PDF ou texte — Qoria lit, analyse et répond.</p></div>
+      <div class="card"><div class="icon-pill">✨</div><h3>Images</h3><p>Visuels en un prompt — 3/jour en Free. Pro&nbsp;: usage normal sans friction, plafond hebdo généreux.</p></div>
+      <div class="card"><div class="icon-pill">📎</div><h3>Fichiers &amp; vision</h3><p>Photo, PDF ou texte — Qoria lit, analyse et répond.</p></div>
       <div class="card"><div class="icon-pill">🧠</div><h3>Mémoire perso</h3><p>Des faits sur toi, réinjectés dans les réponses. Tu contrôles tout.</p></div>
       <div class="card"><div class="icon-pill">🧭</div><h3>Routeur malin</h3><p>Groq par défaut pour le coût. Escalade premium seulement quand c’est vraiment complexe.</p></div>
     </section>
 
     <section class="pricing" id="pricing">
       <p class="section-label">Tarifs</p>
-      <h2 class="section-title">Simple. Transparent.</h2>
+      <h2 class="section-title">Simple. Honnête.</h2>
+      <p class="pricing-lead">Free pour explorer. Pro pour créer beaucoup plus — avec un plafond hebdo généreux pour rester stable.</p>
       <div class="price-grid">
         <div class="card price-card">
           <h3>Free</h3>
@@ -68,7 +76,7 @@
             <li>Appel vocal</li>
             <li>3 images / jour</li>
             <li>1 vidéo courte / jour*</li>
-            <li>Mémoire & fichiers</li>
+            <li>Mémoire &amp; fichiers</li>
           </ul>
           <a class="btn btn-primary" href="/signup.html" style="width:100%">S’inscrire</a>
         </div>
@@ -76,21 +84,32 @@
           <h3>Pro</h3>
           <div class="price">20 $<span> / mois CAD</span></div>
           <ul>
-            <li>Chat, images & vidéo illimités</li>
+            <li>Chat &amp; médias très généreux</li>
+            <li>Plafond hebdo soft (reset lundi)</li>
             <li>Mode ensemble (2 modèles)</li>
             <li>Priorité modèles premium*</li>
             <li>Support prioritaire</li>
           </ul>
-          <a class="btn btn-primary" href="/pricing.html" style="width:100%">Voir Pro</a>
-          <p style="color:var(--muted);font-size:.75rem;margin:.7rem 0 0">*selon les clés API configurées · *vidéo quand le fournisseur est branché</p>
+          <a class="btn btn-primary" href="/pricing.html" style="width:100%">Passer à Pro</a>
+          <p class="price-footnote">*selon les clés API branchées · *vidéo quand le fournisseur est configuré · Pro n’est pas « sans limite absolue » — un plafond hebdo protège la qualité du service.</p>
         </div>
       </div>
     </section>
 
     <footer class="footer">
       © Qoria · Orchestration de modèles cloud — pas un modèle entraîné maison.<br />
-      Comptes locaux · mots de passe hachés · pas de revente de données.
+      Comptes locaux · mots de passe hachés · pas de revente de données.<br />
+      <span class="footer-hint">Sur iPhone : Safari → Partager → Sur l’écran d’accueil.</span>
     </footer>
   </div>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+
 </body>
 </html>

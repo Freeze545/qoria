@@ -36,7 +36,13 @@ const PORT = process.env.PORT || 3850;
 const JWT_SECRET = process.env.JWT_SECRET || 'qoria-dev-insecure';
 const FREE_IMAGES = Number(process.env.FREE_DAILY_IMAGES || 3);
 const FREE_VIDEOS = Number(process.env.FREE_DAILY_VIDEOS || 1);
+/** @deprecated use PRO_WEEKLY_ENSEMBLE — kept as fallback if weekly unset historically */
 const ENSEMBLE_CAP = Number(process.env.ENSEMBLE_DAILY_CAP || 10);
+// Pro soft weekly ceilings (calendar week Mon→Sun, America/Toronto). Generous vs Free daily quotas.
+const PRO_WEEKLY_MESSAGES = Number(process.env.PRO_WEEKLY_MESSAGES || 2500);
+const PRO_WEEKLY_IMAGES = Number(process.env.PRO_WEEKLY_IMAGES || 150);
+const PRO_WEEKLY_VIDEOS = Number(process.env.PRO_WEEKLY_VIDEOS || 30);
+const PRO_WEEKLY_ENSEMBLE = Number(process.env.PRO_WEEKLY_ENSEMBLE || process.env.ENSEMBLE_DAILY_CAP || 40);
 const DEFAULT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 1200);
 const VISION_MAX_TOKENS = Number(process.env.VISION_MAX_TOKENS || 600);
 const COOKIE = 'qoria_token';
@@ -126,9 +132,28 @@ function isPro(user) {
 
 function limitsFor(user) {
   if (isPro(user)) {
-    return { images: null, videos: null, ensemble: ENSEMBLE_CAP, chat: null };
+    return {
+      images: PRO_WEEKLY_IMAGES,
+      videos: PRO_WEEKLY_VIDEOS,
+      ensemble: PRO_WEEKLY_ENSEMBLE,
+      chat: PRO_WEEKLY_MESSAGES,
+      period: 'week',
+      weekStart: db.weekStart(),
+      soft: true,
+    };
   }
-  return { images: FREE_IMAGES, videos: FREE_VIDEOS, ensemble: 0, chat: null };
+  return {
+    images: FREE_IMAGES,
+    videos: FREE_VIDEOS,
+    ensemble: 0,
+    chat: null,
+    period: 'day',
+    soft: false,
+  };
+}
+
+function proWeeklyResetMessage() {
+  return 'Limite hebdo Pro atteinte — revient lundi';
 }
 
 function friendlyProviderError(err) {
@@ -172,34 +197,50 @@ function checkUsage(userId, kind = 'messages') {
         limits: lims,
       };
     }
-    const count = usage.ensemble || 0;
-    if (count >= ENSEMBLE_CAP) {
+    const limit = lims.ensemble;
+    const count = usage.weekEnsemble || 0;
+    if (limit != null && count >= limit) {
       return {
         ok: false,
-        code: 'ensemble_limit',
-        error: `Limite ensemble atteinte (${ENSEMBLE_CAP}/jour).`,
+        code: 'weekly_limit',
+        error: proWeeklyResetMessage() + ` (ensemble ${limit}/semaine).`,
         usage,
-        limit: ENSEMBLE_CAP,
+        limit,
         limits: lims,
       };
     }
-    return { ok: true, usage, limit: ENSEMBLE_CAP, limits: lims, kind, pending: true };
+    return { ok: true, usage, limit, limits: lims, kind, pending: true };
   }
 
   if (kind === 'images') {
+    if (pro) {
+      const limit = lims.images;
+      const count = usage.weekImages || 0;
+      if (limit != null && count >= limit) {
+        return {
+          ok: false,
+          code: 'weekly_limit',
+          error: proWeeklyResetMessage() + ` (images ${limit}/semaine).`,
+          usage,
+          limit,
+          limits: lims,
+        };
+      }
+      return { ok: true, usage, limit, limits: lims, kind, pending: true };
+    }
     const limit = lims.images;
     const count = usage.images || 0;
     if (limit != null && count >= limit) {
       return {
         ok: false,
         code: 'image_limit',
-        error: `Limite d’images atteinte (${limit}/jour en Free). Passe à Pro pour illimité.`,
+        error: `Limite d’images atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
         usage,
         limit,
         limits: lims,
       };
     }
-    return { ok: true, usage, limit: limit == null ? null : limit, limits: lims, kind, pending: true };
+    return { ok: true, usage, limit, limits: lims, kind, pending: true };
   }
 
   if (kind === 'videos') {
@@ -214,36 +255,84 @@ function checkUsage(userId, kind = 'messages') {
         stub: true,
       };
     }
+    if (pro) {
+      const limit = lims.videos;
+      const count = usage.weekVideos || 0;
+      if (limit != null && count >= limit) {
+        return {
+          ok: false,
+          code: 'weekly_limit',
+          error: proWeeklyResetMessage() + ` (vidéos ${limit}/semaine).`,
+          usage,
+          limit,
+          limits: lims,
+        };
+      }
+      return { ok: true, usage, limit, limits: lims, kind, pending: true };
+    }
     const limit = lims.videos;
     const count = usage.videos || 0;
     if (limit != null && count >= limit) {
       return {
         ok: false,
         code: 'video_limit',
-        error: `Limite vidéo atteinte (${limit}/jour en Free). Passe à Pro pour illimité.`,
+        error: `Limite vidéo atteinte (${limit}/jour en Free). Pro = plafond hebdo généreux.`,
         usage,
         limit,
         limits: lims,
       };
     }
-    return { ok: true, usage, limit: limit == null ? null : limit, limits: lims, kind, pending: true };
+    return { ok: true, usage, limit, limits: lims, kind, pending: true };
   }
 
-  // Chat messages: unlimited (track after success)
+  // Chat messages: Free unlimited; Pro soft weekly ceiling
+  if (pro) {
+    const limit = lims.chat;
+    const count = usage.weekMessages || 0;
+    if (limit != null && count >= limit) {
+      return {
+        ok: false,
+        code: 'weekly_limit',
+        error: proWeeklyResetMessage() + ` (messages ${limit}/semaine).`,
+        usage,
+        limit,
+        limits: lims,
+      };
+    }
+    return { ok: true, usage, limit, limits: lims, kind: 'messages', pending: true };
+  }
   return { ok: true, usage, limit: null, limits: lims, kind: 'messages', pending: true };
 }
 
 function commitUsage(userId, kind = 'messages') {
   const data = db.load();
+  const user = findUser(data, userId);
   const usage = db.getUsage(data, userId);
-  const lims = limitsFor(findUser(data, userId));
-  if (kind === 'ensemble') usage.ensemble = (usage.ensemble || 0) + 1;
-  else if (kind === 'images') usage.images = (usage.images || 0) + 1;
-  else if (kind === 'videos') usage.videos = (usage.videos || 0) + 1;
-  else usage.messages = (usage.messages || 0) + 1;
+  const lims = limitsFor(user);
+  const pro = isPro(user);
+
+  if (kind === 'ensemble') {
+    usage.ensemble = (usage.ensemble || 0) + 1;
+    usage.weekEnsemble = (usage.weekEnsemble || 0) + 1;
+  } else if (kind === 'images') {
+    usage.images = (usage.images || 0) + 1;
+    if (pro) usage.weekImages = (usage.weekImages || 0) + 1;
+  } else if (kind === 'videos') {
+    usage.videos = (usage.videos || 0) + 1;
+    if (pro) usage.weekVideos = (usage.weekVideos || 0) + 1;
+  } else {
+    usage.messages = (usage.messages || 0) + 1;
+    if (pro) usage.weekMessages = (usage.weekMessages || 0) + 1;
+  }
+
   db.setUsage(data, userId, usage);
   db.save(data);
-  return { usage, limits: lims, limit: kind === 'ensemble' ? ENSEMBLE_CAP : kind === 'images' ? lims.images : kind === 'videos' ? lims.videos : null };
+  let limit = null;
+  if (kind === 'ensemble') limit = lims.ensemble;
+  else if (kind === 'images') limit = lims.images;
+  else if (kind === 'videos') limit = lims.videos;
+  else if (pro) limit = lims.chat;
+  return { usage, limits: lims, limit };
 }
 
 /** @deprecated prefer checkUsage + commitUsage — kept for any leftover calls */
@@ -319,9 +408,15 @@ app.get('/api/status', authOptional, async (_req, res) => {
     limits: {
       freeImages: FREE_IMAGES,
       freeVideos: FREE_VIDEOS,
-      ensembleDaily: ENSEMBLE_CAP,
-      chatUnlimited: true,
-      proUnlimitedMedia: true,
+      freeChatUnlimited: true,
+      proWeeklyMessages: PRO_WEEKLY_MESSAGES,
+      proWeeklyImages: PRO_WEEKLY_IMAGES,
+      proWeeklyVideos: PRO_WEEKLY_VIDEOS,
+      proWeeklyEnsemble: PRO_WEEKLY_ENSEMBLE,
+      proWeekReset: 'monday',
+      proWeekTimezone: 'America/Toronto',
+      ensembleDailyLegacy: ENSEMBLE_CAP,
+      note: 'Free = quotas journaliers images/vidéo. Pro = plafond hebdo généreux (soft), reset lundi.',
     },
     videoConfigured: VIDEO_CONFIGURED,
     video: VIDEO_STATUS,
@@ -801,7 +896,7 @@ app.post('/api/video', authRequired, async (req, res) => {
     const lims = limitsFor(user);
     const msg = isPro(user)
       ? 'Vidéo excellente nécessite une clé payante (FAL_KEY, POLLINATIONS_API_KEY + Pollen, RUNWAYML_API_SECRET, LUMA_API_KEY ou Sora). Aucun chemin gratuit viable pour une vraie vidéo.'
-      : 'Vidéo : pas encore de fournisseur branché. Free = 1 courte / jour · Pro = illimité, dès qu’une clé (fal / Pollinations / Runway / Luma / Sora) est configurée. Aucun chemin gratuit excellent.';
+      : 'Vidéo : pas encore de fournisseur branché. Free = 1 courte / jour · Pro = plafond hebdo généreux, dès qu’une clé (fal / Pollinations / Runway / Luma / Sora) est configurée. Aucun chemin gratuit excellent.';
     return res.status(501).json({
       ok: false,
       stub: true,
@@ -811,7 +906,8 @@ app.post('/api/video', authRequired, async (req, res) => {
       prompt,
       limits: lims,
       freeDaily: FREE_VIDEOS,
-      proUnlimited: true,
+      proWeeklyVideos: PRO_WEEKLY_VIDEOS,
+      proUnlimited: false,
       needsKey: true,
       providers: ['fal', 'pollinations', 'runway', 'luma', 'openai'],
       costHints: {

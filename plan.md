@@ -40,7 +40,7 @@ iPhone (Safari/Chrome)
 
 Un fournisseur n’est marqué **connecté** que si la clé env est présente **et** un smoke test HTTP a réussi au démarrage / via `/api/providers/smoke`. Sinon : « clé manquante » + repli Groq/Pollinations.
 
-**Ensemble (Pro) :** 2 modèles + présentation comparée. Plafond `ENSEMBLE_DAILY_CAP` (défaut 10/jour) pour que le coût API ne dépasse pas le revenu abo.
+**Ensemble (Pro) :** 2 modèles + présentation comparée. Plafond hebdo `PRO_WEEKLY_ENSEMBLE` (défaut 40/semaine) pour que le coût API reste sous le revenu abo.
 
 ### Routage cheap-first (coûts)
 
@@ -62,7 +62,7 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 | Groq | généreux free / pay-as-you-go | Défaut actuel `qwen/qwen3.8-27b` |
 | Pollinations images (classic) | 0 $ | ≈768² sana — ok, pas DALL·E |
 | Pollinations gen (clé) | Pollen / $ | Flux schnell etc. — excellence |
-| Vidéo (fal Wan / Pollinations / Runway / Luma / Sora) | ~0,05–0,50 $/clip | Clé requise; Free 1/jour vs Pro illimité |
+| Vidéo (fal Wan / Pollinations / Runway / Luma / Sora) | ~0,05–0,50 $/clip | Clé requise; Free 1/jour vs Pro plafond hebdo |
 | OpenAI GPT-4o | ~$/1M tokens | Qualité vision/écriture |
 | xAI Grok | selon plan | |
 | Anthropic Claude | selon plan | Excellent code/raisonnement |
@@ -70,7 +70,13 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 | Tavily search | free limited | Optionnel |
 | Stripe | 0 jusqu’à vrais paiements | Test key ≠ charge réelle |
 
-**Contrôle coûts :** Free = chat illimité + 3 images/jour + 1 vidéo/jour ; Pro = illimité (chat/images/vidéo) ; ensemble 10/jour Pro ; pas d’agents multi-step illimités en v1.
+**Contrôle coûts :** Free = chat illimité + 3 images/jour + 1 vidéo/jour.
+**Pro = plafond hebdo soft** (semaine calendaire lundi→dimanche, fuseau America/Toronto) — ressenti généreux vs Free, mais plafond backend pour rester rentable :
+- `PRO_WEEKLY_MESSAGES` défaut **2500**
+- `PRO_WEEKLY_IMAGES` défaut **150**
+- `PRO_WEEKLY_VIDEOS` défaut **30**
+- `PRO_WEEKLY_ENSEMBLE` défaut **40**
+Message FR au plafond : « Limite hebdo Pro atteinte — revient lundi ». Pas d’agents multi-step illimités en v1.
 
 **Règle business :** ne pas ouvrir ensemble / modèles premium sans marge (clés payantes + Pro).
 
@@ -112,4 +118,5 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 2. Streaming SSE
 3. Webhooks Stripe → plan Pro auto
 4. Domaine custom qoria.*
-5. App Store wrapper (PWA d’abord)
+5. PWA (manifest + icônes + SW shell) — fait ; App Store wrapper plus tard
+6. Clés payantes images/vidéo premium + Stripe live

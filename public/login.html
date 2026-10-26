@@ -1,32 +1,40 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr-CA">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Connexion — Qoria</title>
+  <meta name="theme-color" content="#05060b" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
   <div class="auth-wrap">
-    <div class="card auth-card">
-      <div class="brand" style="margin-bottom:1rem">
-        <img src="/logo.jpg" alt="" width="36" height="36" />
+    <div class="auth-card">
+      <a class="brand" href="/" style="margin-bottom:1.15rem;display:inline-flex">
+        <img src="/logo.jpg" alt="Qoria" width="38" height="38" />
         <span>Qoria</span>
-      </div>
-      <h1>Connexion</h1>
-      <p class="sub">Bon retour. Continuons.</p>
+      </a>
+      <h1>Bon retour</h1>
+      <p class="sub">Reconnecte-toi pour continuer où tu étais.</p>
       <form id="form">
-        <div class="field"><label>Courriel</label><input type="email" id="email" required autocomplete="email" /></div>
+        <div class="field"><label>Courriel</label><input type="email" id="email" required autocomplete="email" inputmode="email" /></div>
         <div class="field"><label>Mot de passe</label><input type="password" id="password" required autocomplete="current-password" /></div>
         <div class="err" id="err"></div>
         <button class="btn btn-primary" type="submit">Se connecter</button>
       </form>
-      <p style="margin-top:1rem;color:var(--muted);font-size:.9rem">Pas de compte ? <a href="/signup.html">Créer un compte</a></p>
+      <p style="margin-top:1.15rem;color:var(--muted);font-size:.9rem;text-align:center">Pas de compte ? <a href="/signup.html">Créer un compte</a></p>
     </div>
   </div>
   <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+    }
     document.getElementById('form').onsubmit = async (e) => {
       e.preventDefault();
       const err = document.getElementById('err');
@@ -36,10 +44,7 @@
         const r = await fetch('/api/auth/login', {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: val('email').trim(),
-            password: val('password')
-          })
+          body: JSON.stringify({ email: val('email').trim(), password: val('password') })
         });
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || 'Erreur');

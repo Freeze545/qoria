@@ -71,9 +71,16 @@
     try {
       const d = await api('/api/auth/me');
       user = d.user;
-      $('planChip').textContent = (user.plan || 'free').toUpperCase();
+      const plan = (user.plan || 'free').toUpperCase();
+      const chip = $('planChip');
+      if (chip) {
+        chip.textContent = plan;
+        chip.classList.toggle('pro', plan === 'PRO');
+      }
       if (d.limits) limits = d.limits;
       updateUsage(d.usage, d.limits);
+      const cta = $('proCtaBar');
+      if (cta) cta.classList.toggle('show', plan !== 'PRO');
       return true;
     } catch {
       location.href = '/login.html';
@@ -86,13 +93,23 @@
     if (lims) limits = lims;
     const plan = (user?.plan || 'free');
     const isPro = plan === 'pro';
-    const imgUsed = u.images || 0;
-    const vidUsed = u.videos || 0;
-    const imgLim = isPro ? '∞' : (limits.images ?? 3);
-    const vidLim = isPro ? '∞' : (limits.videos ?? 1);
-    const line = `Images : ${imgUsed}/${imgLim} · Vidéo : ${vidUsed}/${vidLim} · ${isPro ? 'Pro' : 'Free'}`;
+    let line;
+    if (isPro) {
+      // Soft: don't show harsh Free-style counters. Pro feels generous.
+      line = 'Pro · plafond hebdo généreux (reset lundi)';
+    } else {
+      const imgUsed = u.images || 0;
+      const vidUsed = u.videos || 0;
+      const imgLim = limits.images ?? 3;
+      const vidLim = limits.videos ?? 1;
+      line = `Images : ${imgUsed}/${imgLim} · Vidéo : ${vidUsed}/${vidLim} · Free`;
+    }
     if ($('usageChip')) $('usageChip').textContent = line;
-    if ($('usageLine')) $('usageLine').textContent = line + (isPro ? '' : ' · chat illimité');
+    if ($('usageLine')) {
+      $('usageLine').textContent = isPro
+        ? line
+        : line + ' · chat illimité · Pro = plus généreux';
+    }
   }
 
   async function loadConvs() {
@@ -243,7 +260,7 @@
       showProGate(
         isProUser()
           ? 'Vidéo excellente : clé payante requise (fal ≈0,05–0,10$/clip, Pollinations Pollen, Runway, Luma ou Sora). Aucun chemin gratuit viable.'
-          : 'Vidéo : Free = 1/jour · Pro = illimité, dès qu’une clé fournisseur est branchée. Pas de chemin gratuit excellent — fal / Pollinations / Runway / Luma / Sora.'
+          : 'Vidéo : Free = 1/jour · Pro = plafond hebdo généreux, dès qu’une clé fournisseur est branchée. Pas de chemin gratuit excellent — fal / Pollinations / Runway / Luma / Sora.'
       );
       return false;
     }
@@ -383,12 +400,18 @@
       showProGate(err.message || 'Fonction Pro — passe à Pro pour débloquer');
       return;
     }
+    if (code === 'weekly_limit' || code === 'ensemble_limit') {
+      const title = $('proGateTitle');
+      if (title) title.textContent = 'Plafond hebdo';
+      showProGate(err.message || 'Limite hebdo Pro atteinte — revient lundi');
+      return;
+    }
     if (code === 'image_limit' || code === 'video_limit') {
-      showProGate(err.message || 'Limite Free atteinte — passe à Pro pour illimité');
+      showProGate(err.message || 'Limite Free atteinte — Pro offre un plafond hebdo généreux');
       return;
     }
     if (code === 'video_unavailable' || code === 'video_not_implemented') {
-      showProGate(err.message || 'Vidéo : clé fournisseur payante requise. Free = 1/jour · Pro = illimité.');
+      showProGate(err.message || 'Vidéo : clé fournisseur payante requise. Free = 1/jour · Pro = plafond hebdo généreux.');
       return;
     }
     pushBubble('assistant', '⚠️ ' + (err.message || 'Erreur'), { skipHistory: true });
@@ -410,7 +433,7 @@
       showProGate(
         isProUser()
           ? 'Vidéo excellente : clé payante requise (fal / Pollinations / Runway / Luma / Sora).'
-          : 'Vidéo : Free = 1/jour · Pro = illimité une fois branchée. Pas de chemin gratuit excellent.'
+          : 'Vidéo : Free = 1/jour · Pro = plafond hebdo généreux une fois branchée. Pas de chemin gratuit excellent.'
       );
       return;
     }
@@ -832,6 +855,24 @@
   $('btnEndCall')?.addEventListener('click', endVoiceCall);
 
 
+  // Empty-state suggestion chips
+  document.querySelectorAll('#emptySuggestions [data-prompt]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const p = btn.getAttribute('data-prompt') || '';
+      const input = $('input');
+      if (!input) return;
+      if (/^Génère une image/i.test(p)) {
+        selectMode('image');
+        input.value = p.replace(/^Génère une image\s*:\s*/i, '');
+      } else {
+        selectMode('chat');
+        input.value = p;
+      }
+      input.focus();
+      input.dispatchEvent(new Event('input'));
+    });
+  });
+
   // boot
   (async () => {
     if (!(await ensureAuth())) return;
@@ -839,18 +880,17 @@
     try {
       const st = await api('/api/status');
       caps.video = Boolean(st.capabilities?.video || st.videoConfigured);
-      if (st.limits) {
+      const me = await api('/api/auth/me');
+      if (me.limits) limits = me.limits;
+      else if (st.limits) {
         limits = {
           images: st.limits.freeImages ?? 3,
           videos: st.limits.freeVideos ?? 1,
-          ensemble: st.limits.ensembleDaily ?? 10,
-          chat: null,
+          ensemble: st.limits.proWeeklyEnsemble ?? st.limits.ensembleDaily ?? 10,
+          chat: st.limits.proWeeklyMessages ?? null,
         };
-        // refresh chip with plan-aware limits after status
-        const me = await api('/api/auth/me');
-        if (me.limits) limits = me.limits;
-        updateUsage(me.usage, me.limits);
       }
+      updateUsage(me.usage, me.limits || limits);
     } catch {}
   })();
 })();

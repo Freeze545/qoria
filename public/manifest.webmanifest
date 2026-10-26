@@ -1,7 +1,7 @@
 {
   "name": "Qoria",
   "short_name": "Qoria",
-  "description": "Generalist AI — chat, images, files, memory. Works on every device. Replies in your language.",
+  "description": "Generalist AI — chat, voice, images, files, memory. Works on every device. Replies in your language. / IA généraliste — chat, voix, images, fichiers, mémoire.",
   "start_url": "/app.html",
   "scope": "/",
   "display": "standalone",

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr-CA">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Connexion — Qoria</title>
+  <title data-i18n="title.login">Connexion — Qoria</title>
   <meta name="theme-color" content="#05060b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -12,6 +12,7 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/i18n.js"></script>
 </head>
 <body>
   <div class="auth-wrap">
@@ -20,15 +21,15 @@
         <img src="/logo.jpg" alt="Qoria" width="38" height="38" />
         <span>Qoria</span>
       </a>
-      <h1>Bon retour</h1>
-      <p class="sub">Reconnecte-toi pour continuer où tu étais.</p>
+      <h1 data-i18n="login.h1">Bon retour</h1>
+      <p class="sub" data-i18n="login.sub">Reconnecte-toi pour continuer où tu étais.</p>
       <form id="form">
-        <div class="field"><label>Courriel</label><input type="email" id="email" required autocomplete="email" inputmode="email" /></div>
-        <div class="field"><label>Mot de passe</label><input type="password" id="password" required autocomplete="current-password" /></div>
+        <div class="field"><label data-i18n="login.email">Courriel</label><input type="email" id="email" required autocomplete="email" inputmode="email" /></div>
+        <div class="field"><label data-i18n="login.password">Mot de passe</label><input type="password" id="password" required autocomplete="current-password" /></div>
         <div class="err" id="err"></div>
-        <button class="btn btn-primary" type="submit">Se connecter</button>
+        <button class="btn btn-primary" type="submit" data-i18n="login.submit">Se connecter</button>
       </form>
-      <p style="margin-top:1.15rem;color:var(--muted);font-size:.9rem;text-align:center">Pas de compte ? <a href="/signup.html">Créer un compte</a></p>
+      <p style="margin-top:1.15rem;color:var(--muted);font-size:.9rem;text-align:center" data-i18n-html="login.footer">Pas de compte ? <a href="/signup.html">Créer un compte</a></p>
     </div>
   </div>
   <script>
@@ -40,6 +41,7 @@
       const err = document.getElementById('err');
       err.textContent = '';
       const val = (id) => ((document.getElementById(id) || {}).value || '');
+      const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
       try {
         const r = await fetch('/api/auth/login', {
           method: 'POST', credentials: 'include',
@@ -47,7 +49,7 @@
           body: JSON.stringify({ email: val('email').trim(), password: val('password') })
         });
         const d = await r.json();
-        if (!r.ok) throw new Error(d.error || 'Erreur');
+        if (!r.ok) throw new Error(d.error || t('login.err'));
         if (d.token) localStorage.setItem('qoria_token', d.token);
         location.href = '/app.html';
       } catch (ex) { err.textContent = ex.message; }

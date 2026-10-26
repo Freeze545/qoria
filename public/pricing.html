@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr-CA">
+<html lang="fr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>Tarifs — Qoria</title>
+  <title data-i18n="title.pricing">Tarifs — Qoria</title>
   <meta name="theme-color" content="#05060b" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -13,52 +13,53 @@
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <script src="/js/i18n.js"></script>
 </head>
 <body>
   <div class="container">
     <nav class="nav">
       <a class="brand" href="/"><img src="/logo.jpg" alt="Qoria" /><span>Qoria</span></a>
       <div class="nav-actions">
-        <a class="btn" href="/app.html">App</a>
-        <a class="btn btn-primary" href="/signup.html">S’inscrire</a>
+        <a class="btn" href="/app.html" data-i18n="nav.app">App</a>
+        <a class="btn btn-primary" href="/signup.html" data-i18n="nav.register">S’inscrire</a>
       </div>
     </nav>
     <section class="pricing" style="padding-top:2rem">
-      <p class="section-label">Tarifs</p>
-      <h2 class="section-title">Free &amp; Pro</h2>
-      <p class="pricing-lead">
+      <p class="section-label" data-i18n="pricing.label">Tarifs</p>
+      <h2 class="section-title" data-i18n="pricing.title">Free &amp; Pro</h2>
+      <p class="pricing-lead" data-i18n-html="pricing.lead">
         Free pour explorer. Pro pour créer beaucoup plus — avec un <strong style="color:var(--text);font-weight:600">plafond hebdo généreux</strong> qui garde le service stable (comme un cap soft, pas un mur quotidien).
       </p>
       <div class="price-grid">
         <div class="card price-card">
           <h3>Free</h3>
-          <div class="price">0 $<span>/mois</span></div>
+          <div class="price" data-i18n-html="pricing.free.price">0 $<span>/mois</span></div>
           <ul>
-            <li>Chat illimité</li>
-            <li>Appel vocal</li>
-            <li>3 créations d’image / jour</li>
-            <li>1 vidéo courte / jour*</li>
-            <li>Mémoire &amp; fichiers</li>
+            <li data-i18n="pricing.free.li1">Chat illimité</li>
+            <li data-i18n="pricing.free.li2">Appel vocal</li>
+            <li data-i18n="pricing.free.li3">3 créations d’image / jour</li>
+            <li data-i18n="pricing.free.li4">1 vidéo courte / jour*</li>
+            <li data-i18n="pricing.free.li5">Mémoire &amp; fichiers</li>
           </ul>
-          <p class="price-footnote">*Vidéo excellente = clé fournisseur (fal / Pollinations / Runway / Luma / Sora). Pas de chemin gratuit excellent.</p>
-          <a class="btn" href="/signup.html" style="width:100%;margin-top:.8rem">Continuer gratuit</a>
+          <p class="price-footnote" data-i18n="pricing.free.note">*Vidéo excellente = clé fournisseur (fal / Pollinations / Runway / Luma / Sora). Pas de chemin gratuit excellent.</p>
+          <a class="btn" href="/signup.html" style="width:100%;margin-top:.8rem" data-i18n="pricing.free.cta">Continuer gratuit</a>
         </div>
         <div class="card price-card featured">
           <h3>Pro</h3>
-          <div class="price">20 $<span>/mois</span></div>
+          <div class="price" data-i18n-html="pricing.pro.price">20 $<span>/mois</span></div>
           <ul>
-            <li>Chat &amp; médias très généreux au quotidien</li>
-            <li>Plafond hebdo soft — reset chaque lundi</li>
-            <li>Mode ensemble (2 modèles)</li>
-            <li>Priorité aux modèles premium*</li>
-            <li>Support prioritaire</li>
+            <li data-i18n="pricing.pro.li1">Chat &amp; médias très généreux au quotidien</li>
+            <li data-i18n="pricing.pro.li2">Plafond hebdo soft — reset chaque lundi</li>
+            <li data-i18n="pricing.pro.li3">Mode ensemble (2 modèles)</li>
+            <li data-i18n="pricing.pro.li4">Priorité aux modèles premium*</li>
+            <li data-i18n="pricing.pro.li5">Support prioritaire</li>
           </ul>
-          <p class="price-footnote">Usage normal = tu ne le remarques pas. Si tu touches le plafond&nbsp;: «&nbsp;Limite hebdo Pro atteinte — revient lundi&nbsp;».</p>
-          <button class="btn btn-primary" id="btnPro" style="width:100%;margin-top:.8rem">Passer à Pro</button>
+          <p class="price-footnote" data-i18n="pricing.pro.note">Usage normal = tu ne le remarques pas. Si tu touches le plafond&nbsp;: «&nbsp;Limite hebdo Pro atteinte — revient lundi&nbsp;».</p>
+          <button class="btn btn-primary" id="btnPro" style="width:100%;margin-top:.8rem" data-i18n="pricing.pro.cta">Passer à Pro</button>
           <p id="billMsg" style="color:var(--muted);font-size:.8rem;margin-top:.65rem;text-align:center"></p>
         </div>
       </div>
-      <p style="text-align:center;color:var(--muted2);font-size:.78rem;margin:1.75rem auto 0;max-width:32rem;line-height:1.55">
+      <p style="text-align:center;color:var(--muted2);font-size:.78rem;margin:1.75rem auto 0;max-width:32rem;line-height:1.55" data-i18n-html="pricing.stripe">
         Stripe s’active dès que STRIPE_PRICE_ID est configuré. En mode test, Pro peut s’activer sans débit réel.<br />
         <strong style="color:var(--muted);font-weight:600">Bientôt</strong> — essai Pro 7 jours (carte enregistrée plus tard). Images &amp; vidéo premium dépendent des clés API branchées; sans clé payante, la qualité média reste honnête, pas magique.
       </p>
@@ -69,6 +70,7 @@
       window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
     }
     const token = localStorage.getItem('qoria_token');
+    const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
     btnPro.onclick = async () => {
       billMsg.textContent = '…';
       if (!token) { location.href = '/login.html'; return; }
@@ -79,7 +81,7 @@
       });
       const d = await r.json();
       if (d.url) { location.href = d.url; return; }
-      billMsg.textContent = d.message || (d.ok ? 'Pro activé (test).' : 'Stub — configure Stripe.');
+      billMsg.textContent = d.message || (d.ok ? t('pricing.bill.proOk') : t('pricing.bill.stub'));
       if (d.ok && d.stub) setTimeout(() => location.href = '/app.html', 800);
     };
   </script>

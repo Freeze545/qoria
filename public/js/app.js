@@ -16,6 +16,9 @@
   const history = []; // {role, content} for API
 
   const $ = (id) => document.getElementById(id);
+
+  const t = (key, vars) => (window.QoriaI18n && QoriaI18n.t(key, vars)) || key;
+  const uiLocale = () => (window.QoriaI18n && QoriaI18n.localeTag()) || (navigator.language || 'fr');
   const messagesEl = $('messages');
   const emptyEl = $('empty');
 
@@ -37,7 +40,7 @@
   function showProGate(message) {
     const bg = $('proGate');
     const msg = $('proGateMsg');
-    if (msg) msg.textContent = message || 'Fonction Pro — passe à Pro pour débloquer';
+    if (msg) msg.textContent = message || t('js.proGate.default');
     if (bg) bg.classList.add('show');
   }
   function hideProGate() {
@@ -53,12 +56,12 @@
     const d = await r.json().catch(() => ({}));
     if (r.status === 401) {
       localStorage.removeItem('qoria_token');
-      try { alert(d.error || 'Session expirée — reconnecte-toi.'); } catch {}
+      try { alert(d.error || t('js.sessionExpired')); } catch {}
       location.href = '/login.html';
-      throw new Error(d.error || 'Non connecté');
+      throw new Error(d.error || t('js.notLoggedIn'));
     }
     if (!r.ok) {
-      const err = new Error(d.error || ('Erreur ' + r.status));
+      const err = new Error(d.error || t('js.errorStatus', { n: r.status }));
       err.code = d.code;
       err.payload = d;
       err.status = r.status;
@@ -96,19 +99,19 @@
     let line;
     if (isPro) {
       // Soft: don't show harsh Free-style counters. Pro feels generous.
-      line = 'Pro · plafond hebdo généreux (reset lundi)';
+      line = t('js.usage.pro');
     } else {
       const imgUsed = u.images || 0;
       const vidUsed = u.videos || 0;
       const imgLim = limits.images ?? 3;
       const vidLim = limits.videos ?? 1;
-      line = `Images : ${imgUsed}/${imgLim} · Vidéo : ${vidUsed}/${vidLim} · Free`;
+      line = t('js.usage.free', { img: imgUsed, imgLim, vid: vidUsed, vidLim });
     }
     if ($('usageChip')) $('usageChip').textContent = line;
     if ($('usageLine')) {
       $('usageLine').textContent = isPro
         ? line
-        : line + ' · chat illimité · Pro = plus généreux';
+        : line + t('js.usage.freeExtra');
     }
   }
 
@@ -120,15 +123,15 @@
     if (!convs.length) {
       const empty = document.createElement('div');
       empty.className = 'conv-empty';
-      empty.textContent = 'Aucune conversation pour l’instant. Lance-en une.';
+      empty.textContent = t('js.conv.empty');
       list.appendChild(empty);
       return;
     }
-    const loc = preferredLang();
+    const loc = uiLocale();
     convs.forEach((c) => {
       const b = document.createElement('button');
       b.className = 'conv-item' + (c.id === conversationId ? ' active' : '');
-      b.innerHTML = `${escapeHtml(c.title || 'Conversation')}<small>${new Date(c.updatedAt || c.createdAt).toLocaleString(loc)}</small>`;
+      b.innerHTML = `${escapeHtml(c.title || t('js.conv.fallback'))}<small>${new Date(c.updatedAt || c.createdAt).toLocaleString(loc)}</small>`;
       b.onclick = () => openConv(c.id);
       list.appendChild(b);
     });
@@ -215,7 +218,7 @@
         const im = document.createElement('img');
         im.className = 'gen user-img';
         im.src = meta.image;
-        im.alt = 'image envoyée';
+        im.alt = t('js.img.sent');
         bubble.appendChild(im);
       }
       if (meta.video && safeMediaUrl(meta.video)) {
@@ -261,15 +264,15 @@
   function selectMode(next) {
     // Ensemble is Pro-only — warn immediately
     if (next === 'ensemble' && !isProUser()) {
-      showProGate('Fonction Pro — passe à Pro pour débloquer');
+      showProGate(t('js.proGate.default'));
       return false;
     }
     // Video: if provider not configured, honest bientôt (not a silent fail)
     if (next === 'video' && !caps.video) {
       showProGate(
         isProUser()
-          ? 'Vidéo excellente : clé payante requise (fal ≈0,05–0,10$/clip, Pollinations Pollen, Runway, Luma ou Sora). Aucun chemin gratuit viable.'
-          : 'Vidéo : Free = 1/jour · Pro = plafond hebdo généreux, dès qu’une clé fournisseur est branchée. Pas de chemin gratuit excellent — fal / Pollinations / Runway / Luma / Sora.'
+          ? t('js.video.proNeedKey')
+          : t('js.video.freeNeedKey')
       );
       return false;
     }
@@ -354,7 +357,7 @@
         body: fd,
       });
       const d = await r.json();
-      if (!r.ok) throw new Error(d.error || 'Upload échoué');
+      if (!r.ok) throw new Error(d.error || t('js.upload.fail'));
       if (d.analysis?.vision && d.dataUrl) {
         attach = { kind: 'image', dataUrl: d.dataUrl, name: d.name };
         $('attachThumb').src = d.dataUrl;
@@ -366,7 +369,7 @@
         attach = { kind: 'file', name: d.name, url: d.url };
         $('attachThumb').style.display = 'none';
       }
-      $('attachLabel').textContent = d.name || 'Fichier';
+      $('attachLabel').textContent = d.name || t('js.file');
       $('attachPreview').hidden = false;
     } catch (e) {
       alert(e.message);
@@ -381,7 +384,7 @@
   $('btnMic').onclick = () => {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert('Reconnaissance vocale non supportée sur ce navigateur (limite Safari fréquente).');
+      alert(t('js.speech.unsupported'));
       return;
     }
     if (recognizing && recognition) {
@@ -406,24 +409,24 @@
   function handleApiError(err) {
     const code = err.code || err.payload?.code;
     if (code === 'pro_required' || err.status === 403) {
-      showProGate(err.message || 'Fonction Pro — passe à Pro pour débloquer');
+      showProGate(err.message || t('js.proGate.default'));
       return;
     }
     if (code === 'weekly_limit' || code === 'ensemble_limit') {
       const title = $('proGateTitle');
-      if (title) title.textContent = 'Plafond hebdo';
-      showProGate(err.message || 'Limite hebdo Pro atteinte — revient lundi');
+      if (title) title.textContent = t('js.weeklyCap');
+      showProGate(err.message || t('js.weeklyLimit'));
       return;
     }
     if (code === 'image_limit' || code === 'video_limit') {
-      showProGate(err.message || 'Limite Free atteinte — Pro offre un plafond hebdo généreux');
+      showProGate(err.message || t('js.freeLimit'));
       return;
     }
     if (code === 'video_unavailable' || code === 'video_not_implemented') {
-      showProGate(err.message || 'Vidéo : clé fournisseur payante requise. Free = 1/jour · Pro = plafond hebdo généreux.');
+      showProGate(err.message || t('js.video.needPaid'));
       return;
     }
-    pushBubble('assistant', '⚠️ ' + (err.message || 'Erreur'), { skipHistory: true });
+    pushBubble('assistant', '⚠️ ' + (err.message || t('js.error')), { skipHistory: true });
   }
 
   // send
@@ -435,14 +438,14 @@
 
     // Gate again at send time for ensemble / video
     if (mode === 'ensemble' && !isProUser()) {
-      showProGate('Fonction Pro — passe à Pro pour débloquer');
+      showProGate(t('js.proGate.default'));
       return;
     }
     if (mode === 'video' && !caps.video) {
       showProGate(
         isProUser()
-          ? 'Vidéo excellente : clé payante requise (fal / Pollinations / Runway / Luma / Sora).'
-          : 'Vidéo : Free = 1/jour · Pro = plafond hebdo généreux une fois branchée. Pas de chemin gratuit excellent.'
+          ? t('js.video.proNeedKeyShort')
+          : t('js.video.freeNeedKeyShort')
       );
       return;
     }
@@ -452,13 +455,13 @@
 
     try {
       if (mode === 'video') {
-        const prompt = text || 'une courte vidéo cinématique';
+        const prompt = text || t('js.video.defaultPrompt');
         pushBubble('user', '🎬 ' + prompt);
         $('input').value = '';
         clearAttach();
         const thinking = document.createElement('div');
         thinking.className = 'msg assistant';
-        thinking.innerHTML = '<div class="bubble">Génération de la vidéo… (peut prendre 1–2 min)</div>';
+        thinking.innerHTML = '<div class="bubble">' + t('js.video.thinking') + '</div>';
         messagesEl.appendChild(thinking);
         try {
           const d = await api('/api/video', {
@@ -468,15 +471,15 @@
           thinking.remove();
           if (d.usage) updateUsage(d.usage, d.limits);
           if (d.url) {
-            const note = d.costHint ? `\n\n_${d.provider || 'vidéo'} · ${d.costHint}_` : '';
-            pushBubble('assistant', `Voici ta vidéo:\n\n[video](${d.url})${note}`, {
+            const note = d.costHint ? `\n\n_${d.provider || 'video'} · ${d.costHint}_` : '';
+            pushBubble('assistant', `${t('js.video.here')}\n\n[video](${d.url})${note}`, {
               model: d.model,
               provider: d.provider,
               video: d.url,
             });
-            history.push({ role: 'assistant', content: 'Vidéo générée: ' + d.url });
+            history.push({ role: 'assistant', content: t('js.video.generated') + d.url });
           } else {
-            pushBubble('assistant', d.message || d.error || 'Vidéo non disponible.', { skipHistory: true });
+            pushBubble('assistant', d.message || d.error || t('js.video.unavailable'), { skipHistory: true });
           }
         } catch (err) {
           thinking.remove();
@@ -487,13 +490,13 @@
       }
 
       if (mode === 'image') {
-        const prompt = text || 'une image abstraite indigo et violet';
+        const prompt = text || t('js.image.defaultPrompt');
         pushBubble('user', '🖼️ ' + prompt);
         $('input').value = '';
         clearAttach();
         const thinking = document.createElement('div');
         thinking.className = 'msg assistant';
-        thinking.innerHTML = '<div class="bubble">Génération de l’image…</div>';
+        thinking.innerHTML = '<div class="bubble">' + t('js.image.thinking') + '</div>';
         messagesEl.appendChild(thinking);
         try {
           const d = await api('/api/image', {
@@ -503,14 +506,14 @@
           thinking.remove();
           const url = d.url || d.b64;
           if (!url) {
-            pushBubble('assistant', 'Pas d’image renvoyée — ton quota n’a pas été consommé. Réessaie.');
+            pushBubble('assistant', t('js.image.none'));
           } else {
             const note = d.qualityNote ? `\n\n_${d.qualityNote}_` : '';
-            pushBubble('assistant', `Voici ton image:\n\n![image](${url})${note}`, {
+            pushBubble('assistant', `${t('js.image.here')}\n\n![image](${url})${note}`, {
               model: d.model,
               provider: d.provider,
             });
-            history.push({ role: 'assistant', content: 'Image générée: ' + (d.url || '[embedded]') });
+            history.push({ role: 'assistant', content: t('js.image.generated') + (d.url || '[embedded]') });
           }
           if (d.usage) updateUsage(d.usage, d.limits);
         } catch (err) {
@@ -525,15 +528,15 @@
       let content;
       if (attach?.kind === 'image') {
         content = [
-          { type: 'text', text: text || 'Analyse cette image.' },
+          { type: 'text', text: text || t('js.analyze.image') },
           { type: 'image_url', image_url: { url: attach.dataUrl } },
         ];
-        pushBubble('user', text || 'Analyse cette image.', { skipHistory: true, image: attach.dataUrl });
+        pushBubble('user', text || t('js.analyze.image'), { skipHistory: true, image: attach.dataUrl });
         history.push({ role: 'user', content });
       } else if (attach?.kind === 'text') {
-        const combined = `${text || 'Analyse ce document.'}\n\n---\nFichier (${attach.name}):\n${attach.text.slice(0, 60000)}`;
+        const combined = `${text || t('js.analyze.doc')}\n\n---\n${t('js.file.header', { name: attach.name })}\n${attach.text.slice(0, 60000)}`;
         content = combined;
-        pushBubble('user', text || ('Fichier: ' + attach.name));
+        pushBubble('user', text || (t('js.file.label') + attach.name));
         history.push({ role: 'user', content });
       } else {
         content = text;
@@ -545,7 +548,7 @@
 
       const pending = document.createElement('div');
       pending.className = 'msg assistant';
-      pending.innerHTML = '<div class="bubble">Qoria réfléchit…</div>';
+      pending.innerHTML = '<div class="bubble">' + t('js.thinking') + '</div>';
       messagesEl.appendChild(pending);
 
       const payloadMessages = history.map((m) => ({ role: m.role, content: m.content }));
@@ -607,7 +610,7 @@
       row.appendChild(del);
       list.appendChild(row);
     });
-    if (!(d.memories || []).length) list.innerHTML = '<p style="color:var(--muted);font-size:.85rem">Aucune mémoire.</p>';
+    if (!(d.memories || []).length) list.innerHTML = '<p style="color:var(--muted);font-size:.85rem">' + t('js.mem.empty') + '</p>';
   }
   function openMem() { $('memModal').classList.add('show'); refreshMem(); }
   function closeMem() { $('memModal').classList.remove('show'); }
@@ -622,7 +625,7 @@
     refreshMem();
   };
   $('btnClearMem').onclick = async () => {
-    if (!confirm('Effacer toute la mémoire ?')) return;
+    if (!confirm(t('js.mem.clearConfirm'))) return;
     await api('/api/memory', { method: 'DELETE' });
     refreshMem();
   };
@@ -635,7 +638,7 @@
     (d.providers || []).forEach((p) => {
       const row = document.createElement('div');
       row.className = 'prov-row';
-      const st = p.connected ? '<span class="ok">connecté</span>' : `<span class="warn">${escapeHtml(p.status || 'clé manquante')}</span>`;
+      const st = p.connected ? '<span class="ok">' + t('js.prov.ok') + '</span>' : `<span class="warn">${escapeHtml(p.status || t('js.prov.missing'))}</span>`;
       row.innerHTML = `<span><strong>${escapeHtml(p.name)}</strong><br/><small style="color:var(--muted)">${escapeHtml(p.id)}</small></span><span>${st}</span>`;
       list.appendChild(row);
     });
@@ -643,17 +646,24 @@
   $('btnProviders').onclick = () => { $('provModal').classList.add('show'); refreshProv(); };
   $('btnCloseProv').onclick = () => $('provModal').classList.remove('show');
   $('btnSmoke').onclick = async () => {
-    $('btnSmoke').textContent = 'Test…';
+    $('btnSmoke').textContent = t('js.prov.testing');
     await api('/api/providers/smoke', { method: 'POST', body: '{}' });
     await refreshProv();
-    $('btnSmoke').textContent = 'Relancer les tests';
+    $('btnSmoke').textContent = t('js.prov.retest');
   };
 
 
-  // ——— Voice call (speech in → chat → TTS out) ———
+  // ——— Voice call (speech in → chat → TTS out) + barge-in ———
+  // Barge-in: keep SpeechRecognition running during TTS. Real speech (final
+  // transcript, length/confidence filter) cancels speechSynthesis immediately.
+  // Noise/music/gibberish is ignored. Web Speech API works best in Chrome;
+  // Safari support is partial (recognition + TTS echo can be flaky).
   let callActive = false;
   let callRec = null;
   let callListening = false;
+  let callSpeaking = false;
+  let bargeArmed = false; // ignore mic briefly after TTS starts (echo)
+  let bargeBusy = false;  // processing an interruption
 
   function setCallUI(state, status, transcript) {
     const el = $('voiceCall');
@@ -684,6 +694,12 @@
   // (ElevenLabs / OpenAI TTS) would be required — see README "Voix".
   let bestVoice = null;
   function preferredLang() {
+    // Prefer UI lang for SR/TTS locale, then browser.
+    if (window.QoriaI18n) {
+      const ui = QoriaI18n.getLang();
+      if (ui === 'en') return QoriaI18n.localeTag() || 'en-US';
+      if (ui === 'fr') return QoriaI18n.localeTag() || 'fr-CA';
+    }
     const nav = (navigator.language || 'en').replace('_', '-');
     return nav;
   }
@@ -692,14 +708,13 @@
     if (!vs.length) return null;
     const nav = preferredLang();
     const navPrimary = nav.split('-')[0].toLowerCase();
-    // Light script detection so TTS follows the user's language, not French-only.
     const sample = String(forText || '').slice(0, 80);
     let want = navPrimary;
     if (/[àâäéèêëïîôùûüç]/i.test(sample) || /\b(le|la|les|des|une|pour|avec|quoi|salut)\b/i.test(sample)) want = 'fr';
     else if (/[áéíóúñ¿¡]/i.test(sample) || /\b(hola|gracias|por favor|qué)\b/i.test(sample)) want = 'es';
     else if (/[äöüß]/i.test(sample)) want = 'de';
     else if (/^[\x00-\x7F\s.,!?'"\-]+$/.test(sample) && /\b(the|and|you|what|please|hello)\b/i.test(sample)) want = 'en';
-    const pool = vs.filter((v) => (v.lang || '').toLowerCase().startsWith(want)) ;
+    const pool = vs.filter((v) => (v.lang || '').toLowerCase().startsWith(want));
     const list = pool.length ? pool : vs.filter((v) => (v.lang || '').toLowerCase().startsWith(navPrimary));
     const final = list.length ? list : vs;
     const score = (v) => {
@@ -721,7 +736,6 @@
     speechSynthesis.onvoiceschanged = () => { bestVoice = pickVoice(''); };
   }
 
-  // Split into short natural sentences; merge tiny fragments so it never sounds choppy.
   function splitForSpeech(text) {
     const parts = (text.match(/[^.!?;:]+[.!?;:]*/g) || [text]).map((x) => x.trim()).filter(Boolean);
     const out = [];
@@ -736,6 +750,29 @@
     return out;
   }
 
+  /** True speech vs noise/music/echo: need letters, min length, optional confidence. */
+  function isRealSpeech(raw, confidence) {
+    const text = String(raw || '').trim();
+    if (!text) return false;
+    const letters = (text.match(/[\p{L}\p{N}]/gu) || []).length;
+    if (letters < 4) return false;
+    const words = text.split(/\s+/).filter((w) => /[\p{L}\p{N}]{2,}/u.test(w));
+    if (words.length < 1) return false;
+    // Single very short token is usually noise / TTS echo fragment
+    if (words.length === 1 && words[0].length < 4) return false;
+    // Reject pure fillers
+    if (/^(um+|uh+|ah+|eh+|hmm+|mm+|euh+|hein+|ok|okay|oui|non|yes|no)\.?$/i.test(text)) return false;
+    if (typeof confidence === 'number' && !Number.isNaN(confidence) && confidence > 0 && confidence < 0.45) return false;
+    return true;
+  }
+
+  function cancelSpeaking() {
+    speakToken++;
+    callSpeaking = false;
+    bargeArmed = false;
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+  }
+
   let speakToken = 0;
   function speakText(text) {
     return new Promise((resolve) => {
@@ -746,10 +783,22 @@
       const chunks = splitForSpeech(clean);
       const my = ++speakToken;
       bestVoice = pickVoice(clean) || bestVoice;
-      setCallUI('speaking', 'Qoria parle…', clean.slice(0, 180));
+      callSpeaking = true;
+      bargeArmed = false;
+      setCallUI('speaking', t('js.call.speaking'), clean.slice(0, 180));
+      // Arm barge-in after a short delay so TTS echo into the mic is ignored
+      setTimeout(() => { if (my === speakToken && callActive) bargeArmed = true; }, 550);
+      // Keep recognition alive during TTS for barge-in
+      if (callActive && !callListening) startCallListen({ duringSpeech: true });
       let i = 0;
       const next = () => {
-        if (my !== speakToken || (typeof callActive !== 'undefined' && !callActive) || i >= chunks.length) return resolve();
+        if (my !== speakToken || !callActive || i >= chunks.length) {
+          if (my === speakToken) {
+            callSpeaking = false;
+            bargeArmed = false;
+          }
+          return resolve();
+        }
         const u = new SpeechSynthesisUtterance(chunks[i++]);
         if (bestVoice) u.voice = bestVoice;
         u.lang = bestVoice ? bestVoice.lang : preferredLang();
@@ -768,9 +817,10 @@
   async function voiceSend(text) {
     const cleaned = String(text || '').trim();
     if (!cleaned || !callActive) return;
+    bargeBusy = true;
     pushBubble('user', cleaned);
     history.push({ role: 'user', content: cleaned });
-    setCallUI('speaking', 'Qoria réfléchit…', cleaned);
+    setCallUI('speaking', t('js.call.thinking'), cleaned);
     try {
       const d = await api('/api/chat', {
         method: 'POST',
@@ -786,68 +836,118 @@
       pushBubble('assistant', d.content, { model: d.model, provider: d.provider });
       if (d.usage) updateUsage(d.usage, d.limits);
       loadConvs();
+      bargeBusy = false;
       await speakText(d.content);
     } catch (err) {
       handleApiError(err);
-      await speakText(err.message || 'Une erreur est survenue.');
+      bargeBusy = false;
+      await speakText(err.message || t('js.call.error'));
+    } finally {
+      bargeBusy = false;
+      if (callActive && !callListening) startCallListen();
     }
+  }
+
+  function handleBargeIn(said) {
+    if (!callActive || bargeBusy) return;
+    if (!isRealSpeech(said)) return;
+    // Only interrupt while speaking (or always accept when listening idle)
+    if (callSpeaking) {
+      if (!bargeArmed) return; // echo guard
+      cancelSpeaking();
+    }
+    setCallUI('listening', t('js.call.yourTurn'), said);
+    voiceSend(said);
   }
 
   function stopCallRecognition() {
     callListening = false;
+    try { callRec && callRec.onend && (callRec.onend = null); } catch {}
     try { callRec && callRec.stop(); } catch {}
+    try { callRec && callRec.abort && callRec.abort(); } catch {}
     callRec = null;
   }
 
-  function startCallListen() {
+  function startCallListen(opts = {}) {
     if (!callActive) return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      setCallUI('', 'Reconnaissance vocale non supportée sur ce navigateur.', '');
+      setCallUI('', t('js.call.srUnsupported'), '');
       return;
     }
+    // If already listening, leave it (barge-in path reuses the same recognizer)
+    if (callListening && callRec && !opts.forceRestart) return;
+
     stopCallRecognition();
     callRec = new SR();
     callRec.lang = preferredLang();
     callRec.interimResults = true;
-    callRec.continuous = false;
+    // continuous helps barge-in during TTS (Chrome). Safari may ignore.
+    callRec.continuous = true;
     let finalText = '';
     callRec.onstart = () => {
       callListening = true;
-      setCallUI('listening', 'À toi — parle maintenant', '');
+      if (!callSpeaking) setCallUI('listening', t('js.call.yourTurn'), '');
     };
     callRec.onresult = (ev) => {
       let interim = '';
+      let conf = null;
       finalText = '';
       for (let i = 0; i < ev.results.length; i++) {
-        const t = ev.results[i][0].transcript;
-        if (ev.results[i].isFinal) finalText += t;
-        else interim += t;
+        const res = ev.results[i];
+        const t0 = res[0];
+        const piece = (t0 && t0.transcript) || '';
+        if (typeof t0?.confidence === 'number' && t0.confidence > 0) conf = t0.confidence;
+        if (res.isFinal) finalText += piece;
+        else interim += piece;
       }
-      setCallUI('listening', 'À toi — parle maintenant', finalText || interim);
+      const display = (finalText || interim).trim();
+      if (!callSpeaking) {
+        setCallUI('listening', t('js.call.yourTurn'), display);
+      } else if (display) {
+        // Show interim while Qoria talks so user sees barge-in is live
+        if ($('voiceTranscript')) $('voiceTranscript').textContent = display;
+      }
+      // Prefer final transcript for barge-in / send
+      if (finalText.trim()) {
+        const said = finalText.trim();
+        finalText = '';
+        if (callSpeaking) {
+          handleBargeIn(said);
+        } else if (!bargeBusy) {
+          if (isRealSpeech(said, conf)) voiceSend(said);
+        }
+      }
     };
-    callRec.onerror = () => {
+    callRec.onerror = (ev) => {
       callListening = false;
-      if (callActive) setTimeout(startCallListen, 400);
-    };
-    callRec.onend = async () => {
-      callListening = false;
-      const said = finalText.trim();
+      // 'no-speech' / 'aborted' are normal; restart if call still active
+      const err = (ev && ev.error) || '';
       if (!callActive) return;
-      if (said) {
-        await voiceSend(said);
+      if (err === 'not-allowed' || err === 'service-not-allowed') {
+        setCallUI('', t('js.call.srUnsupported'), '');
+        return;
       }
-      if (callActive) startCallListen();
+      setTimeout(() => { if (callActive) startCallListen({ forceRestart: true }); }, 350);
+    };
+    callRec.onend = () => {
+      callListening = false;
+      if (!callActive) return;
+      // Restart so we keep listening through TTS and between turns
+      setTimeout(() => { if (callActive) startCallListen({ forceRestart: true }); }, 120);
     };
     try { callRec.start(); } catch (e) {
-      setTimeout(() => { if (callActive) startCallListen(); }, 500);
+      setTimeout(() => { if (callActive) startCallListen({ forceRestart: true }); }, 400);
     }
   }
 
   function endVoiceCall() {
     callActive = false;
+    bargeBusy = false;
+    callSpeaking = false;
+    bargeArmed = false;
     stopCallRecognition();
-    speakToken++; try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+    cancelSpeaking();
     $('voiceCall')?.classList.remove('show', 'listening', 'speaking');
     $('btnVoiceCall')?.classList.remove('live');
   }
@@ -855,20 +955,23 @@
   function startVoiceCall() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
-      alert('Appel vocal non supporté sur ce navigateur (essaie Chrome).');
+      alert(t('js.call.unsupported'));
       return;
     }
     if (!window.speechSynthesis) {
-      alert('Synthèse vocale non supportée sur ce navigateur.');
+      alert(t('js.call.ttsUnsupported'));
       return;
     }
     callActive = true;
+    bargeBusy = false;
     $('voiceCall')?.classList.add('show');
     $('btnVoiceCall')?.classList.add('live');
-    setCallUI('listening', 'Dis bonjour à Qoria…', '');
-    // Short greeting then listen
-    speakText('Allô, c’est Qoria. Je t’écoute.').then(() => {
-      if (callActive) startCallListen();
+    setCallUI('listening', t('js.call.sayHi'), '');
+    // Start listening first (barge-in ready), then greet
+    startCallListen({ forceRestart: true });
+    speakText(t('js.call.greeting')).then(() => {
+      if (callActive && !callListening) startCallListen({ forceRestart: true });
+      if (callActive && !callSpeaking) setCallUI('listening', t('js.call.yourTurn'), '');
     });
   }
 
@@ -885,9 +988,9 @@
       const p = btn.getAttribute('data-prompt') || '';
       const input = $('input');
       if (!input) return;
-      if (/^Génère une image/i.test(p)) {
+      if (/^(Génère une image|Generate an image)/i.test(p)) {
         selectMode('image');
-        input.value = p.replace(/^Génère une image\s*:\s*/i, '');
+        input.value = p.replace(/^(Génère une image|Generate an image)\s*:\s*/i, '');
       } else {
         selectMode('chat');
         input.value = p;
@@ -895,6 +998,17 @@
       input.focus();
       input.dispatchEvent(new Event('input'));
     });
+  });
+
+  // Re-apply usage / dynamic chrome when language toggles
+  document.addEventListener('qoria:lang', () => {
+    try {
+      if (user) updateUsage(null, limits);
+      const smoke = $('btnSmoke');
+      if (smoke && !smoke.disabled) smoke.textContent = t('js.prov.retest');
+      const title = $('proGateTitle');
+      if (title && !$('proGate')?.classList.contains('show')) title.textContent = t('app.proGate.title');
+    } catch {}
   });
 
   // boot

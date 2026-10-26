@@ -109,6 +109,7 @@
       'login.email': 'Courriel',
       'login.password': 'Mot de passe',
       'login.submit': 'Se connecter',
+      'login.loading': 'Connexion…',
       'login.footer': 'Pas de compte ? <a href="/signup.html">Créer un compte</a>',
       'login.err': 'Erreur',
       'signup.h1': 'Créer un compte',
@@ -118,6 +119,7 @@
       'signup.email': 'Courriel',
       'signup.password': 'Mot de passe',
       'signup.submit': 'Commencer avec Qoria',
+      'signup.creating': 'Création…',
       'signup.footer': 'Déjà inscrit ? <a href="/login.html">Connexion</a>',
       'signup.err': 'Erreur',
 
@@ -326,6 +328,7 @@
       'signup.email': 'Email',
       'signup.password': 'Password',
       'signup.submit': 'Start with Qoria',
+      'signup.creating': 'Creating…',
       'signup.footer': 'Already registered? <a href="/login.html">Log in</a>',
       'signup.err': 'Error',
 

@@ -519,7 +519,7 @@ app.post('/api/providers/smoke', authOptional, async (_req, res) => {
 });
 
 // ——— Auth ———
-app.post('/api/auth/signup', (req, res) => {
+app.post('/api/auth/signup', async (req, res) => {
   try {
     const email = String(req.body?.email || '').trim().toLowerCase();
     const password = String(req.body?.password || '');
@@ -534,7 +534,7 @@ app.post('/api/auth/signup', (req, res) => {
       id: uuidv4(),
       email,
       name,
-      passwordHash: bcrypt.hashSync(password, 10),
+      passwordHash: await bcrypt.hash(password, 10),
       plan: 'free',
       createdAt: new Date().toISOString(),
     };
@@ -549,12 +549,12 @@ app.post('/api/auth/signup', (req, res) => {
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
   const data = db.load();
   const user = findUser(data, email);
-  if (!user || !bcrypt.compareSync(password, user.passwordHash)) {
+  if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return res.status(401).json({ error: msg(requestLang(req), 'Courriel ou mot de passe incorrect', 'Incorrect email or password') });
   }
   const token = signUser(user);

@@ -55,7 +55,19 @@ services:
         sync: false
       - key: STRIPE_PRICE_ID
         sync: false
+      - key: VIDEO_PROVIDER
+        sync: false
+      - key: FAL_KEY
+        sync: false
+      - key: RUNWAYML_API_SECRET
+        sync: false
+      - key: LUMA_API_KEY
+        sync: false
       - key: VIDEO_API_KEY
         sync: false
       - key: VIDEO_API_URL
         sync: false
+      - key: VIDEO_MODEL
+        sync: false
+      - key: VIDEO_DURATION
+        value: "5"

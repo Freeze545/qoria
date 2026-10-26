@@ -15,15 +15,33 @@ Voir [plan.md](./plan.md) pour architecture, coûts et clés.
 
 L'appel vocal utilise la synthèse vocale gratuite du navigateur (Web Speech API). Qoria choisit automatiquement la meilleure voix française disponible (Premium/Enhanced/Neural/Google/Samantha/Thomas/Amélie), parle à un débit de 0.9, découpe le texte en phrases courtes avec de petites pauses et retire emojis/markdown. La qualité dépend de l'appareil : sur iPhone/Mac, télécharger une voix « Améliorée/Premium » (Réglages > Accessibilité > Contenu énoncé > Voix) aide beaucoup. Pour une voix vraiment humaine, il faudrait un TTS payant (ElevenLabs ou OpenAI TTS).
 
-
 ## Images
 
-Par défaut : **Pollinations gratuit** (prompts enrichis FR→EN + boosters photo/éclairage, modèle `flux` si dispo, 1024²).  
-Le quota Free (3/jour) n’est **pas** consommé si la génération échoue.
+**Sans clé (toujours on)** : Pollinations classic, modèle `sana`, ~**768×768**, prompts FR→EN + boosters photo. Quota Free 3/jour **non** consommé si échec. Qualité honnête : correcte, **pas** DALL·E 3.
 
-- Avec `IMAGE_API_KEY` (DALL·E 3 / compatible) ou `POLLINATIONS_API_KEY` : clairement meilleure qualité.
-- Sans clé payante : mieux qu’avant, mais le plafond gratuit reste **en-dessous** de DALL·E 3 / Flux payant (détails, texte dans l’image, cohérence).
+**Pour excellence** (recommandé) :
+| Clé | Effet | Coût approx. |
+|-----|--------|--------------|
+| `POLLINATIONS_API_KEY` (enter.pollinations.ai) | Flux schnell / modèles gen, moins de rate-limit | Flux souvent 0 Pollen ; autres modèles ≈ $ |
+| `IMAGE_API_KEY` (DALL·E 3) | Haute qualité HD | ~0,04–0,08 $/image |
+| `XAI_API_KEY` | Grok Image | selon xAI |
+
+## Vidéo
+
+**Aucun chemin gratuit excellent** (Pollinations video, fal, Runway, Luma, Sora = tous payants / clé requise).  
+Sans clé : message FR honnête + paywall Free **1/jour** vs Pro **illimité** une fois branché.
+
+| `VIDEO_PROVIDER` | Clé | Coût approx. / clip 5s |
+|------------------|-----|-------------------------|
+| `fal` | `FAL_KEY` | ~0,05–0,10 $ (Wan turbo) |
+| `pollinations` | `POLLINATIONS_API_KEY` + Pollen | ~0,05 $ (Wan 2.2 fast) |
+| `runway` | `RUNWAYML_API_SECRET` | ~0,25–0,50 $ |
+| `luma` | `LUMA_API_KEY` | ~0,20–1 $ |
+| `openai` | `OPENAI_OWN_API_KEY` (Sora) | crédits OpenAI |
+| `generic` | `VIDEO_API_KEY` + `VIDEO_API_URL` | selon ton backend |
+
+E2E réel dès qu’une clé est présente : génération → fichier `/uploads/…` → lecteur vidéo dans le chat.
 
 ## Chat
 
-Modèle Groq par défaut : `openai/gpt-oss-120b` (plus fort que le petit Qwen). Prompt système Qoria : québécois, direct, peu de fluff. Température ~0.55, max tokens 1200.
+Modèle Groq par défaut : `openai/gpt-oss-120b`. Prompt système Qoria : québécois, direct, peu de fluff. Température ~0.55, max tokens 1200.

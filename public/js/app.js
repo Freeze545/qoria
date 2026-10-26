@@ -129,22 +129,50 @@
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
+  function safeMediaUrl(url) {
+    const s = String(url || '');
+    if (/^\/uploads\//.test(s)) return s;
+    if (/^data:image\//.test(s)) return s;
+    try {
+      const u = new URL(s, location.origin);
+      if (u.protocol === 'https:' || u.protocol === 'http:') return u.href;
+    } catch {}
+    return null;
+  }
+
   function renderRich(el, text) {
-    const re = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/image\.pollinations\.ai\/[^\s<>"')]+)/g;
+    // Combined tokenizer: [video](url) | ![alt](url) | bare pollinations URL
+    const re = /\[video\]\(([^)\s]+)\)|!\[([^\]]*)\]\((https?:\/\/[^\s)]+|\/uploads\/[^\s)]+|data:image\/[^\s)]+)\)|(https?:\/\/image\.pollinations\.ai\/[^\s<>"')]+)/g;
     let last = 0, m;
     while ((m = re.exec(text))) {
       if (m.index > last) el.appendChild(document.createTextNode(text.slice(last, m.index)));
-      const url = m[2] || m[3];
-      try {
-        const u = new URL(url);
-        if (u.protocol !== 'https:' && u.protocol !== 'http:') throw 0;
-        const img = document.createElement('img');
-        img.className = 'gen';
-        img.src = u.href;
-        img.alt = m[1] || 'image';
-        img.loading = 'lazy';
-        el.appendChild(img);
-      } catch { el.appendChild(document.createTextNode(m[0])); }
+      if (m[1]) {
+        const src = safeMediaUrl(m[1]);
+        if (src) {
+          const v = document.createElement('video');
+          v.className = 'gen video';
+          v.src = src;
+          v.controls = true;
+          v.playsInline = true;
+          v.preload = 'metadata';
+          el.appendChild(v);
+        } else {
+          el.appendChild(document.createTextNode(m[0]));
+        }
+      } else {
+        const url = m[3] || m[4];
+        const src = safeMediaUrl(url);
+        if (src) {
+          const img = document.createElement('img');
+          img.className = 'gen';
+          img.src = src;
+          img.alt = m[2] || 'image';
+          img.loading = 'lazy';
+          el.appendChild(img);
+        } else {
+          el.appendChild(document.createTextNode(m[0]));
+        }
+      }
       last = re.lastIndex;
     }
     if (last < text.length) el.appendChild(document.createTextNode(text.slice(last)));
@@ -163,6 +191,15 @@
         im.src = meta.image;
         im.alt = 'image envoyée';
         bubble.appendChild(im);
+      }
+      if (meta.video && safeMediaUrl(meta.video)) {
+        const v = document.createElement('video');
+        v.className = 'gen video';
+        v.src = safeMediaUrl(meta.video);
+        v.controls = true;
+        v.playsInline = true;
+        v.preload = 'metadata';
+        bubble.appendChild(v);
       }
       renderRich(bubble, content);
     } else {
@@ -205,8 +242,8 @@
     if (next === 'video' && !caps.video) {
       showProGate(
         isProUser()
-          ? 'Vidéo bientôt disponible — clé fournisseur requise.'
-          : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.'
+          ? 'Vidéo excellente : clé payante requise (fal ≈0,05–0,10$/clip, Pollinations Pollen, Runway, Luma ou Sora). Aucun chemin gratuit viable.'
+          : 'Vidéo : Free = 1/jour · Pro = illimité, dès qu’une clé fournisseur est branchée. Pas de chemin gratuit excellent — fal / Pollinations / Runway / Luma / Sora.'
       );
       return false;
     }
@@ -350,8 +387,8 @@
       showProGate(err.message || 'Limite Free atteinte — passe à Pro pour illimité');
       return;
     }
-    if (code === 'video_unavailable') {
-      showProGate(err.message || 'Vidéo bientôt disponible — clé fournisseur requise.');
+    if (code === 'video_unavailable' || code === 'video_not_implemented') {
+      showProGate(err.message || 'Vidéo : clé fournisseur payante requise. Free = 1/jour · Pro = illimité.');
       return;
     }
     pushBubble('assistant', '⚠️ ' + (err.message || 'Erreur'), { skipHistory: true });
@@ -372,8 +409,8 @@
     if (mode === 'video' && !caps.video) {
       showProGate(
         isProUser()
-          ? 'Vidéo bientôt disponible — clé fournisseur requise.'
-          : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.'
+          ? 'Vidéo excellente : clé payante requise (fal / Pollinations / Runway / Luma / Sora).'
+          : 'Vidéo : Free = 1/jour · Pro = illimité une fois branchée. Pas de chemin gratuit excellent.'
       );
       return;
     }
@@ -383,18 +420,34 @@
 
     try {
       if (mode === 'video') {
-        const prompt = text || 'une courte vidéo';
+        const prompt = text || 'une courte vidéo cinématique';
         pushBubble('user', '🎬 ' + prompt);
         $('input').value = '';
         clearAttach();
+        const thinking = document.createElement('div');
+        thinking.className = 'msg assistant';
+        thinking.innerHTML = '<div class="bubble">Génération de la vidéo… (peut prendre 1–2 min)</div>';
+        messagesEl.appendChild(thinking);
         try {
           const d = await api('/api/video', {
             method: 'POST',
             body: JSON.stringify({ prompt }),
           });
+          thinking.remove();
           if (d.usage) updateUsage(d.usage, d.limits);
-          pushBubble('assistant', d.message || d.error || 'Vidéo non disponible.', { skipHistory: true });
+          if (d.url) {
+            const note = d.costHint ? `\n\n_${d.provider || 'vidéo'} · ${d.costHint}_` : '';
+            pushBubble('assistant', `Voici ta vidéo:\n\n[video](${d.url})${note}`, {
+              model: d.model,
+              provider: d.provider,
+              video: d.url,
+            });
+            history.push({ role: 'assistant', content: 'Vidéo générée: ' + d.url });
+          } else {
+            pushBubble('assistant', d.message || d.error || 'Vidéo non disponible.', { skipHistory: true });
+          }
         } catch (err) {
+          thinking.remove();
           if (err.payload?.usage) updateUsage(err.payload.usage, err.payload.limits);
           handleApiError(err);
         }

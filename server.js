@@ -29,6 +29,7 @@ const db = require('./lib/db');
 const providers = require('./lib/providers');
 const { detectTask, routeChat, pickRoute } = require('./lib/router');
 const { generateImage, imageStatus } = require('./lib/images');
+const { generateVideo, videoStatus } = require('./lib/videos');
 
 const app = express();
 const PORT = process.env.PORT || 3850;
@@ -39,7 +40,8 @@ const ENSEMBLE_CAP = Number(process.env.ENSEMBLE_DAILY_CAP || 10);
 const DEFAULT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 1200);
 const VISION_MAX_TOKENS = Number(process.env.VISION_MAX_TOKENS || 600);
 const COOKIE = 'qoria_token';
-const VIDEO_CONFIGURED = Boolean(process.env.VIDEO_API_KEY && process.env.VIDEO_API_URL);
+const VIDEO_STATUS = videoStatus();
+const VIDEO_CONFIGURED = Boolean(VIDEO_STATUS.configured);
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -302,7 +304,11 @@ app.get('/api/status', authOptional, async (_req, res) => {
       imageFree: true,
       imageQualityNote: img.qualityNote || null,
       imageModel: img.model || null,
-      video: Boolean(process.env.VIDEO_API_KEY && process.env.VIDEO_API_URL),
+      video: VIDEO_CONFIGURED,
+      videoProvider: VIDEO_STATUS.provider || null,
+      videoQualityNote: VIDEO_STATUS.qualityNote || null,
+      videoCostHint: VIDEO_STATUS.costHint || null,
+      videoFreePath: false,
       vision: true,
       voice: true,
       files: true,
@@ -318,6 +324,7 @@ app.get('/api/status', authOptional, async (_req, res) => {
       proUnlimitedMedia: true,
     },
     videoConfigured: VIDEO_CONFIGURED,
+    video: VIDEO_STATUS,
     pricing: { free: '0 $/mois', pro: '20 $/mois CAD' },
   });
 });
@@ -606,7 +613,7 @@ app.post('/api/image', authRequired, async (req, res) => {
       ...out,
       usage: committed.usage,
       limits: committed.limits,
-      qualityNote: imageStatus().qualityNote,
+      qualityNote: out.note || imageStatus().qualityNote,
     });
   } catch (err) {
     console.error('[Qoria] image:', err.message);
@@ -781,18 +788,20 @@ app.post('/api/billing/dev-pro', authRequired, (req, res) => {
   res.json({ ok: true, user: publicUser(user) });
 });
 
-// Video — honest stub unless VIDEO_* configured; Free 1/day, Pro unlimited when live
-app.post('/api/video', authRequired, (req, res) => {
+// Video — real E2E when a paid provider key is set; honest FR paywall otherwise.
+// Free 1/day · Pro unlimited. No free excellent path exists (Pollinations/fal/Runway/Luma/Sora all need keys).
+app.post('/api/video', authRequired, async (req, res) => {
   const prompt = String(req.body?.prompt || '').trim();
   const data = db.load();
   const user = findUser(data, req.user.id);
   if (!user) return res.status(401).json({ error: 'Session invalide' });
 
-  if (!VIDEO_CONFIGURED) {
+  const vstat = videoStatus();
+  if (!vstat.configured) {
     const lims = limitsFor(user);
     const msg = isPro(user)
-      ? 'Vidéo bientôt disponible — clé fournisseur requise.'
-      : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.';
+      ? 'Vidéo excellente nécessite une clé payante (FAL_KEY, POLLINATIONS_API_KEY + Pollen, RUNWAYML_API_SECRET, LUMA_API_KEY ou Sora). Aucun chemin gratuit viable pour une vraie vidéo.'
+      : 'Vidéo : pas encore de fournisseur branché. Free = 1 courte / jour · Pro = illimité, dès qu’une clé (fal / Pollinations / Runway / Luma / Sora) est configurée. Aucun chemin gratuit excellent.';
     return res.status(501).json({
       ok: false,
       stub: true,
@@ -801,6 +810,17 @@ app.post('/api/video', authRequired, (req, res) => {
       message: msg,
       prompt,
       limits: lims,
+      freeDaily: FREE_VIDEOS,
+      proUnlimited: true,
+      needsKey: true,
+      providers: ['fal', 'pollinations', 'runway', 'luma', 'openai'],
+      costHints: {
+        fal: '~0,05–0,10 $/clip (Wan turbo)',
+        pollinations: '~0,05 $/clip (Wan 2.2 fast, Pollen)',
+        runway: '~0,25–0,50 $/clip 5s',
+        luma: '~0,20–1 $/clip',
+        openai: 'Sora — crédits OpenAI',
+      },
       pricingUrl: '/pricing.html',
     });
   }
@@ -818,16 +838,38 @@ app.post('/api/video', authRequired, (req, res) => {
     });
   }
 
-  // Don't burn Free quota until a real video provider returns success
-  return res.status(501).json({
-    ok: false,
-    stub: true,
-    code: 'video_not_implemented',
-    error: 'Hook vidéo générique à compléter pour ton fournisseur.',
-    prompt,
-    usage: checked.usage,
-    limits: checked.limits,
-  });
+  try {
+    const out = await generateVideo(prompt);
+    if (!out?.ok || !out.url) {
+      return res.status(502).json({
+        ok: false,
+        error: 'Génération vidéo échouée — ton quota n’a pas été consommé. Réessaie.',
+        code: 'video_failed',
+      });
+    }
+    const committed = commitUsage(req.user.id, 'videos');
+    return res.json({
+      ok: true,
+      url: out.url,
+      remoteUrl: out.remoteUrl || null,
+      provider: out.provider,
+      model: out.model,
+      costHint: out.costHint || vstat.costHint,
+      enrichedPrompt: out.enrichedPrompt,
+      usage: committed.usage,
+      limits: committed.limits,
+    });
+  } catch (err) {
+    console.error('[Qoria] video:', err.message);
+    const status = err.status === 501 ? 501 : err.status === 402 ? 402 : err.status === 429 ? 429 : 502;
+    return res.status(status).json({
+      ok: false,
+      error: err.message || 'Génération vidéo échouée',
+      code: err.code || (status === 501 ? 'video_unavailable' : 'video_failed'),
+      stub: Boolean(err.stub),
+      pricingUrl: '/pricing.html',
+    });
+  }
 });
 
 // SPA-ish routes

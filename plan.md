@@ -19,7 +19,8 @@ iPhone (Safari/Chrome)
     → DB JSON fichier (data/qoria.json) — évolutif vers Postgres + disk
     → Model Router (lib/router.js)
         → adapters (lib/providers.js): Groq / OpenAI / xAI / Anthropic / Gemini
-    → Images: IMAGE_API_KEY path OU Pollinations (gratuit, toujours on)
+    → Images: IMAGE_API_KEY / POLLINATIONS_API_KEY (Flux) OU classic Pollinations (~768²)
+    → Vidéo: FAL_KEY / Pollinations Pollen / Runway / Luma / Sora (aucun chemin gratuit excellent)
     → Fichiers: multer + vision multimodal / pdf-parse / txt
     → Mémoire: liste user → injectée dans system prompt
     → Limites Free/Pro + ensemble cap
@@ -59,7 +60,9 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 |-------|-----------|-------|
 | Render Web | 0 $ | Cold start ; disk éphémère |
 | Groq | généreux free / pay-as-you-go | Défaut actuel `qwen/qwen3.8-27b` |
-| Pollinations images | 0 $ | Qualité variable, rate limits |
+| Pollinations images (classic) | 0 $ | ≈768² sana — ok, pas DALL·E |
+| Pollinations gen (clé) | Pollen / $ | Flux schnell etc. — excellence |
+| Vidéo (fal Wan / Pollinations / Runway / Luma / Sora) | ~0,05–0,50 $/clip | Clé requise; Free 1/jour vs Pro illimité |
 | OpenAI GPT-4o | ~$/1M tokens | Qualité vision/écriture |
 | xAI Grok | selon plan | |
 | Anthropic Claude | selon plan | Excellent code/raisonnement |

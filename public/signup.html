@@ -32,14 +32,15 @@
       e.preventDefault();
       const err = document.getElementById('err');
       err.textContent = '';
+      const val = (id) => ((document.getElementById(id) || {}).value || '');
       try {
         const r = await fetch('/api/auth/signup', {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: name.value.trim(),
-            email: email.value.trim(),
-            password: password.value
+            name: val('name').trim(),
+            email: val('email').trim(),
+            password: val('password')
           })
         });
         const d = await r.json();

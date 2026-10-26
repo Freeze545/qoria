@@ -1,5 +1,5 @@
 /* Qoria — offline shell only (static assets). Never caches /api/* (auth/chat). */
-const CACHE = 'qoria-shell-v7';
+const CACHE = 'qoria-shell-v8';
 const PRECACHE = [
   '/',
   '/index.html',

@@ -664,8 +664,6 @@
   };
 
 
-  // Voice call removed — mic dictation (btnMic) remains above.
-
   // Empty-state suggestion chips
   document.querySelectorAll('#emptySuggestions [data-prompt]').forEach((btn) => {
     btn.addEventListener('click', () => {

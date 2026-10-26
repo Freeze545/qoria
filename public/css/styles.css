@@ -507,50 +507,6 @@ button, input, textarea { font: inherit; }
 .ok { color: var(--ok); }
 .warn { color: var(--warn); }
 
-/* ——— Voice call ——— */
-.voice-call {
-  position: fixed; inset: 0; z-index: 70; display: none; place-items: center;
-  background:
-    radial-gradient(ellipse at 50% 30%, rgba(124,108,255,.38), transparent 55%),
-    radial-gradient(ellipse at 50% 80%, rgba(236,72,153,.22), transparent 50%),
-    rgba(5,6,11,.93);
-  backdrop-filter: blur(20px);
-  padding: 1.5rem;
-}
-.voice-call.show { display: grid; }
-.voice-call-card { text-align: center; max-width: 360px; width: 100%; }
-.voice-orb {
-  width: 148px; height: 148px; margin: 0 auto 1.5rem; border-radius: 50%;
-  background: var(--grad); position: relative;
-  box-shadow: 0 0 70px rgba(124,108,255,.5), 0 0 140px rgba(168,85,247,.28);
-  animation: orbIdle 3s ease-in-out infinite;
-}
-.voice-call.listening .voice-orb { animation: orbListen 1.1s ease-in-out infinite; }
-.voice-call.speaking .voice-orb { animation: orbSpeak .8s ease-in-out infinite; }
-@keyframes orbIdle {
-  0%, 100% { transform: scale(1); filter: brightness(1); }
-  50% { transform: scale(1.045); filter: brightness(1.08); }
-}
-@keyframes orbListen {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(103,232,249,.4); }
-  50% { transform: scale(1.12); box-shadow: 0 0 80px rgba(103,232,249,.55); }
-}
-@keyframes orbSpeak {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
-.voice-call h2 { margin: 0 0 .4rem; font-size: 1.4rem; letter-spacing: -.025em; }
-.voice-call .status { color: var(--muted); font-size: .92rem; min-height: 1.4em; margin-bottom: 1.5rem; }
-.voice-call .transcript {
-  color: var(--text); font-size: .95rem; line-height: 1.45; min-height: 2.8em;
-  opacity: .85; margin-bottom: 1.5rem;
-}
-.voice-actions { display: flex; gap: .6rem; justify-content: center; flex-wrap: wrap; }
-.voice-end {
-  background: linear-gradient(135deg, #ef4444, #ec4899) !important;
-  border: 0 !important; color: #fff !important;
-}
-
 /* ——— Pro CTA banner in app ——— */
 .pro-cta-bar {
   display: none; margin: 0 .9rem .35rem; padding: .65rem .9rem; border-radius: 14px;

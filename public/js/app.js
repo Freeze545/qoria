@@ -413,15 +413,20 @@
         try {
           const d = await api('/api/image', {
             method: 'POST',
-            body: JSON.stringify({ prompt }),
+            body: JSON.stringify({ prompt, size: '1024x1024' }),
           });
           thinking.remove();
           const url = d.url || d.b64;
-          pushBubble('assistant', url ? `Voici ton image (${d.provider || 'qoria'}):\n\n![image](${url})` : 'Pas d’image renvoyée.', {
-            model: d.model,
-            provider: d.provider,
-          });
-          if (d.url) history.push({ role: 'assistant', content: 'Image générée: ' + d.url });
+          if (!url) {
+            pushBubble('assistant', 'Pas d’image renvoyée — ton quota n’a pas été consommé. Réessaie.');
+          } else {
+            const note = d.qualityNote ? `\n\n_${d.qualityNote}_` : '';
+            pushBubble('assistant', `Voici ton image:\n\n![image](${url})${note}`, {
+              model: d.model,
+              provider: d.provider,
+            });
+            history.push({ role: 'assistant', content: 'Image générée: ' + (d.url || '[embedded]') });
+          }
           if (d.usage) updateUsage(d.usage, d.limits);
         } catch (err) {
           thinking.remove();

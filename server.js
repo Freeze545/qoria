@@ -36,7 +36,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'qoria-dev-insecure';
 const FREE_IMAGES = Number(process.env.FREE_DAILY_IMAGES || 3);
 const FREE_VIDEOS = Number(process.env.FREE_DAILY_VIDEOS || 1);
 const ENSEMBLE_CAP = Number(process.env.ENSEMBLE_DAILY_CAP || 10);
-const DEFAULT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 800);
+const DEFAULT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 1200);
 const VISION_MAX_TOKENS = Number(process.env.VISION_MAX_TOKENS || 600);
 const COOKIE = 'qoria_token';
 const VIDEO_CONFIGURED = Boolean(process.env.VIDEO_API_KEY && process.env.VIDEO_API_URL);
@@ -60,12 +60,18 @@ app.use(express.json({ limit: '12mb' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-const DEFAULT_SYSTEM = `Tu es Qoria, une intelligence artificielle généraliste utile, honnête et amicale.
-Tu aides le grand public : études, travail, projets, vie quotidienne, code, écriture, analyse.
-Réponds en français (québécois naturel) quand l'utilisateur écrit en français; sinon suis sa langue.
-Sois clair, précis, et n'invente pas de faits. Refuse le contenu illégal ou clairement dangereux.
-Tu fais partie du produit Qoria — ne renvoie pas l'utilisateur vers ChatGPT, Claude ou Gemini comme alternative.
-Si tu analyses une image ou un fichier, décris ce qui est utile.`;
+const DEFAULT_SYSTEM = `Tu es Qoria — l'IA généraliste de marque Qoria. Tu parles comme un·e pro compétent·e du Québec : clair, direct, chaleureux sans être niais.
+
+Style de réponse (important) :
+- Va droit au but. Lead avec la réponse utile, puis les détails si besoin.
+- Phrases courtes. Zéro remplissage (« Bien sûr ! », « Avec plaisir ! », « N'hésite pas… », « En résumé, voici… » en ouverture).
+- Français québécois naturel quand l'utilisateur écrit en français; sinon suis sa langue.
+- Structure : listes ou étapes seulement si ça aide vraiment. Pas de markdown décoratif inutile.
+- Sois honnête sur l'incertitude. N'invente pas de faits, citations, prix ou sources.
+- Refuse clairement le contenu illégal ou dangereux; propose une alternative légale quand c'est possible.
+- Tu es Qoria : ne renvoie jamais vers ChatGPT, Claude, Gemini ou Grok comme « meilleure option ».
+- Code : donne le code qui marche, minimal, avec une courte explication — pas un roman.
+- Images/fichiers : décris ce qui est utile pour la tâche, pas une description exhaustive.`;
 
 function signUser(user) {
   return jwt.sign(
@@ -294,6 +300,8 @@ app.get('/api/status', authOptional, async (_req, res) => {
       image: true,
       imagePaid: img.paidConfigured,
       imageFree: true,
+      imageQualityNote: img.qualityNote || null,
+      imageModel: img.model || null,
       video: Boolean(process.env.VIDEO_API_KEY && process.env.VIDEO_API_URL),
       vision: true,
       voice: true,
@@ -432,7 +440,7 @@ app.post('/api/chat', authRequired, async (req, res) => {
       conversationId,
       mode = 'chat',
       ensemble = false,
-      temperature = 0.7,
+      temperature = 0.55,
     } = req.body || {};
 
     if (!Array.isArray(messages) || !messages.length) {
@@ -586,11 +594,28 @@ app.post('/api/image', authRequired, async (req, res) => {
     }
 
     const out = await generateImage(prompt, { size: req.body?.size || '1024x1024' });
+    if (!out?.ok || !(out.url || out.b64)) {
+      // Do NOT burn Free quota on failed / empty gens
+      return res.status(502).json({
+        error: 'Génération image échouée — ton quota n’a pas été consommé. Réessaie.',
+        code: 'image_failed',
+      });
+    }
     const committed = commitUsage(req.user.id, 'images');
-    return res.json({ ...out, usage: committed.usage, limits: committed.limits });
+    return res.json({
+      ...out,
+      usage: committed.usage,
+      limits: committed.limits,
+      qualityNote: imageStatus().qualityNote,
+    });
   } catch (err) {
     console.error('[Qoria] image:', err.message);
-    return res.status(err.status || 500).json({ error: friendlyProviderError(err) });
+    // Failures never commit usage
+    return res.status(err.status || 500).json({
+      error: friendlyProviderError(err),
+      code: err.status === 429 ? 'image_rate_limit' : 'image_failed',
+      quotaCharged: false,
+    });
   }
 });
 

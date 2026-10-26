@@ -14,9 +14,9 @@ services:
       - key: OPENAI_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: OPENAI_MODEL
-        value: qwen/qwen3.8-27b
+        value: openai/gpt-oss-120b
       - key: GROQ_MODEL
-        value: qwen/qwen3.8-27b
+        value: openai/gpt-oss-120b
       - key: FREE_DAILY_IMAGES
         value: "3"
       - key: FREE_DAILY_VIDEOS
@@ -24,7 +24,7 @@ services:
       - key: ENSEMBLE_DAILY_CAP
         value: "10"
       - key: CHAT_MAX_TOKENS
-        value: "800"
+        value: "1200"
       - key: VISION_MAX_TOKENS
         value: "600"
       - key: GROQ_API_KEY
@@ -43,6 +43,12 @@ services:
         sync: false
       - key: IMAGE_BASE_URL
         sync: false
+      - key: IMAGE_MODEL
+        sync: false
+      - key: POLLINATIONS_API_KEY
+        sync: false
+      - key: POLLINATIONS_MODEL
+        value: flux
       - key: TAVILY_API_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

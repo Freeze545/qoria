@@ -157,6 +157,13 @@
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     if (typeof content === 'string') {
+      if (meta.image && /^(data:image\/|https?:|\/)/.test(meta.image)) {
+        const im = document.createElement('img');
+        im.className = 'gen user-img';
+        im.src = meta.image;
+        im.alt = 'image envoyée';
+        bubble.appendChild(im);
+      }
       renderRich(bubble, content);
     } else {
       bubble.textContent = String(content);
@@ -431,7 +438,7 @@
           { type: 'text', text: text || 'Analyse cette image.' },
           { type: 'image_url', image_url: { url: attach.dataUrl } },
         ];
-        pushBubble('user', text || 'Analyse cette image.', { skipHistory: true });
+        pushBubble('user', text || 'Analyse cette image.', { skipHistory: true, image: attach.dataUrl });
         history.push({ role: 'user', content });
       } else if (attach?.kind === 'text') {
         const combined = `${text || 'Analyse ce document.'}\n\n---\nFichier (${attach.name}):\n${attach.text.slice(0, 60000)}`;

@@ -436,3 +436,4 @@ button, input, textarea { font: inherit; }
   background: linear-gradient(135deg, #ef4444, #ec4899) !important;
   border: 0 !important; color: #fff !important;
 }
+.bubble img.user-img { display:block; max-width:min(320px,100%); border-radius:12px; margin:0 0 8px; }

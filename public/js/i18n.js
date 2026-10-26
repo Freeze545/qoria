@@ -319,6 +319,7 @@
       'login.email': 'Email',
       'login.password': 'Password',
       'login.submit': 'Log in',
+      'login.loading': 'Signing in…',
       'login.footer': 'No account? <a href="/signup.html">Create one</a>',
       'login.err': 'Error',
       'signup.h1': 'Create an account',

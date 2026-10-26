@@ -1050,6 +1050,8 @@
   }
 
   function startVoiceCall() {
+    // Voice call paused — Safari/Web Speech too fragile; keep dictation (mic) only
+    return;
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SR) {
       alert(t('js.call.unsupported'));
@@ -1072,10 +1074,9 @@
     });
   }
 
-  $('btnVoiceCall')?.addEventListener('click', () => {
-    if (callActive) endVoiceCall();
-    else startVoiceCall();
-  });
+  // Voice call UI removed — dictation mic remains
+  $('btnVoiceCall')?.setAttribute('hidden', '');
+  $('btnVoiceCall')?.addEventListener('click', () => { /* disabled */ });
   $('btnEndCall')?.addEventListener('click', endVoiceCall);
 
 

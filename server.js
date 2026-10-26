@@ -488,7 +488,7 @@ app.get('/api/status', authOptional, async (_req, res) => {
       videoCostHint: VIDEO_STATUS.costHint || null,
       videoFreePath: false,
       vision: true,
-      voice: true,
+      dictation: true,
       files: true,
       memory: true,
       search: Boolean(process.env.TAVILY_API_KEY),
@@ -681,9 +681,6 @@ app.post('/api/chat', authRequired, async (req, res) => {
     }
 
     let system = buildSystem(req.user.id, searchNote);
-    if (req.body && req.body.voice) {
-      system += '\n\nVOICE CALL MODE: your reply will be read aloud. Answer in 1–3 short, natural spoken sentences in the USER\'s language (same language they just spoke/wrote). No markdown, no lists, no emoji, no symbols, no URLs.';
-    }
     const apiMessages = [
       { role: 'system', content: system },
       ...messages
@@ -695,14 +692,12 @@ app.post('/api/chat', authRequired, async (req, res) => {
       ? Math.min(VISION_MAX_TOKENS, DEFAULT_MAX_TOKENS)
       : DEFAULT_MAX_TOKENS;
 
-    // Voice calls: force cheap/fast Groq model (lower TPM, lower latency)
-    const routeTask = (req.body && req.body.voice) ? 'fast' : task;
     const result = await routeChat({
       messages: apiMessages,
-      task: routeTask,
+      task,
       temperature,
-      max_tokens: (req.body && req.body.voice) ? Math.min(maxTokens, 220) : maxTokens,
-      ensemble: Boolean(ensemble) && !(req.body && req.body.voice),
+      max_tokens: maxTokens,
+      ensemble: Boolean(ensemble),
       userText,
     });
 
@@ -906,12 +901,13 @@ app.delete('/api/memory', authRequired, (req, res) => {
   res.json({ ok: true });
 });
 
-// ——— Billing stub (Stripe Checkout) ———
+// ——— Billing (Stripe Checkout) ———
 app.post('/api/billing/checkout', authRequired, async (req, res) => {
   const secret = process.env.STRIPE_SECRET_KEY || '';
   const price = process.env.STRIPE_PRICE_ID || '';
+  const lang = requestLang(req);
   if (!secret || !price) {
-    // Dev stub: flip plan locally with confirm flag
+    // Dev helper: flip plan locally with confirm flag when test key present
     if (req.body?.devUpgrade === true && secret.startsWith('sk_test')) {
       const data = db.load();
       const user = findUser(data, req.user.id);
@@ -923,7 +919,11 @@ app.post('/api/billing/checkout', authRequired, async (req, res) => {
         return res.json({
           ok: true,
           stub: true,
-          message: 'Mode test : compte passé en Pro (pas de vrai paiement Stripe Price ID).',
+          message: msg(
+            lang,
+            'Mode test : compte passé en Pro (pas de vrai paiement).',
+            'Test mode: account upgraded to Pro (no real charge).'
+          ),
           user: publicUser(user),
         });
       }
@@ -931,8 +931,11 @@ app.post('/api/billing/checkout', authRequired, async (req, res) => {
     return res.json({
       ok: false,
       stub: true,
-      message:
-        'Stripe Checkout non configuré. Ajoute STRIPE_SECRET_KEY + STRIPE_PRICE_ID (prix ~20 $/mois). Aucun débit réel sans ces clés.',
+      message: msg(
+        lang,
+        'Paiement Pro bientôt — Stripe pas encore branché. Essai / carte plus tard.',
+        'Pro checkout coming soon — Stripe not connected yet. Trial / card later.'
+      ),
       priceHintCad: 20,
     });
   }
@@ -955,10 +958,16 @@ app.post('/api/billing/checkout', authRequired, async (req, res) => {
       body: params,
     });
     const data = await r.json();
-    if (!r.ok) return res.status(502).json({ error: data.error?.message || 'Stripe erreur' });
+    if (!r.ok) {
+      return res.status(502).json({
+        error: data.error?.message || msg(lang, 'Erreur Stripe', 'Stripe error'),
+      });
+    }
     return res.json({ ok: true, url: data.url, id: data.id });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    return res.status(500).json({
+      error: e.message || msg(lang, 'Erreur facturation', 'Billing error'),
+    });
   }
 });
 
@@ -966,7 +975,9 @@ app.post('/api/billing/checkout', authRequired, async (req, res) => {
 app.post('/api/billing/dev-pro', authRequired, (req, res) => {
   const secret = process.env.STRIPE_SECRET_KEY || '';
   if (!secret.startsWith('sk_test')) {
-    return res.status(403).json({ error: 'Réservé au mode test Stripe' });
+    return res.status(403).json({
+      error: msg(requestLang(req), 'Réservé au mode test Stripe', 'Stripe test mode only'),
+    });
   }
   const data = db.load();
   const user = findUser(data, req.user.id);

@@ -96,9 +96,10 @@
     btnPro.onclick = async () => {
       billMsg.textContent = '…';
       if (!token) { location.href = '/login.html'; return; }
+      const lang = (window.QoriaI18n && QoriaI18n.getLang && QoriaI18n.getLang()) || 'fr';
       const r = await fetch('/api/billing/checkout', {
         method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'X-Qoria-Lang': lang },
         body: JSON.stringify({ devUpgrade: true })
       });
       const d = await r.json();

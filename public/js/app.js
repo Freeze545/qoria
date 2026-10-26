@@ -403,17 +403,17 @@
       return;
     }
     recognition = new SR();
-    recognition.lang = preferredLang();
+    recognition.lang = uiLocale();
     recognition.interimResults = true;
     recognition.onresult = (ev) => {
       let text = '';
       for (let i = 0; i < ev.results.length; i++) text += ev.results[i][0].transcript;
       $('input').value = text;
     };
-    recognition.onerror = () => { recognizing = false; $('btnMic').style.outline = ''; };
-    recognition.onend = () => { recognizing = false; $('btnMic').style.outline = ''; };
+    recognition.onerror = () => { recognizing = false; $('btnMic').classList.remove('live'); };
+    recognition.onend = () => { recognizing = false; $('btnMic').classList.remove('live'); };
     recognizing = true;
-    $('btnMic').style.outline = '2px solid #a855f7';
+    $('btnMic').classList.add('live');
     recognition.start();
   };
 

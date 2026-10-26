@@ -16,7 +16,7 @@
       'nav.app': 'App',
       'nav.register': 'S’inscrire',
       'meta.desc.home':
-        'Qoria : chat, voix, images, fichiers et mémoire. Interface premium sur tous les appareils. Répond dans ta langue. Free généreux · Pro avec plafond hebdo soft.',
+        'Qoria : chat, dictée, images, fichiers et mémoire. Interface premium sur tous les appareils. Répond dans ta langue. Free généreux · Pro avec plafond hebdo soft.',
       'meta.desc.app': 'Qoria — IA généraliste sur tous les appareils. Répond dans ta langue.',
       'title.home': 'Qoria — Ton IA pour tout',
       'title.pricing': 'Tarifs — Qoria',
@@ -101,7 +101,7 @@
       'pricing.stripe':
         'Stripe s’active dès que STRIPE_PRICE_ID est configuré. En mode test, Pro peut s’activer sans débit réel.<br /><strong style="color:var(--muted);font-weight:600">Bientôt</strong> — essai Pro 7 jours (carte enregistrée plus tard). Images & vidéo premium dépendent des clés API branchées; sans clé payante, la qualité média reste honnête, pas magique.',
       'pricing.bill.proOk': 'Pro activé (test).',
-      'pricing.bill.stub': 'Stub — configure Stripe.',
+      'pricing.bill.stub': 'Paiement Pro bientôt — Stripe pas encore branché.',
 
       // ——— Auth ———
       'login.h1': 'Bon retour',
@@ -227,7 +227,7 @@
       'nav.app': 'App',
       'nav.register': 'Sign up',
       'meta.desc.home':
-        'Qoria: chat, images, files and memory. Premium UI on every device. Replies in your language. Free generous · Pro with soft weekly caps.',
+        'Qoria: chat, dictation, images, files and memory. Premium UI on every device. Replies in your language. Free generous · Pro with soft weekly caps.',
       'meta.desc.app': 'Qoria — generalist AI chat on every device. Replies in your language.',
       'title.home': 'Qoria — Your AI for everything',
       'title.pricing': 'Pricing — Qoria',
@@ -310,7 +310,7 @@
       'pricing.stripe':
         'Stripe turns on once STRIPE_PRICE_ID is set. In test mode, Pro can activate with no real charge.<br /><strong style="color:var(--muted);font-weight:600">Coming soon</strong> — 7-day Pro trial (card saved later). Premium images & video depend on connected API keys; without a paid key, media quality stays honest, not magical.',
       'pricing.bill.proOk': 'Pro activated (test).',
-      'pricing.bill.stub': 'Stub — configure Stripe.',
+      'pricing.bill.stub': 'Pro checkout coming soon — Stripe not connected yet.',
 
       'login.h1': 'Welcome back',
       'login.sub': 'Log in to pick up where you left off.',

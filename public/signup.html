@@ -65,9 +65,10 @@
       const val = (id) => ((document.getElementById(id) || {}).value || '');
       const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
       try {
+        const lang = (window.QoriaI18n && QoriaI18n.getLang && QoriaI18n.getLang()) || 'fr';
         const r = await fetch('/api/auth/signup', {
           method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'X-Qoria-Lang': lang },
           body: JSON.stringify({
             name: val('name').trim(),
             email: val('email').trim(),

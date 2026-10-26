@@ -341,7 +341,7 @@ button, input, textarea { font: inherit; }
 }
 
 .messages {
-  flex: 1; overflow: auto; padding: 1.2rem .95rem 1rem;
+  flex: 1; overflow: auto; overscroll-behavior: contain; padding: 1.2rem .95rem 1rem;
   display: flex; flex-direction: column; gap: 1.05rem;
   scroll-behavior: smooth;
 }
@@ -415,7 +415,11 @@ button, input, textarea { font: inherit; }
 .bubble img.user-img { display:block; max-width:min(320px,100%); border-radius:12px; margin:0 0 8px; }
 
 /* ——— Composer ——— */
-.composer-wrap { padding: .55rem .85rem calc(.75rem + var(--safe-b)); }
+.composer-wrap {
+  flex-shrink: 0;
+  padding: .55rem .85rem calc(.75rem + var(--safe-b));
+  background: linear-gradient(180deg, transparent, rgba(5,6,11,.92) 28%);
+}
 .attach-preview {
   display: flex; align-items: center; gap: .55rem; padding: 0 0 .5rem; font-size: .8rem; color: var(--muted);
 }
@@ -436,12 +440,13 @@ button, input, textarea { font: inherit; }
   width: 100%; background: transparent !important; border: 0 !important; outline: none; resize: none;
   font: 400 16px/1.45 var(--font) !important; color: inherit; padding: .38rem .52rem !important; max-height: 180px;
 }
-.composer-bar { display: flex; align-items: center; gap: .3rem; }
-.composer-bar .spacer { flex: 1; }
+.composer-bar { display: flex; align-items: center; gap: .25rem; min-width: 0; width: 100%; }
+.composer-bar .spacer { flex: 1 1 auto; min-width: .25rem; }
 .c-btn {
-  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 50%;
   border: 1px solid rgba(255,255,255,.1); background: transparent; color: rgba(255,255,255,.7);
-  cursor: pointer; flex: none; -webkit-tap-highlight-color: transparent; transition: background .15s, color .15s, transform .15s;
+  cursor: pointer; flex: none; -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  transition: background .15s, color .15s, transform .15s;
 }
 .c-btn:hover, .c-btn:active, .c-btn.active {
   background: rgba(124,108,255,.22); color: #fff; border-color: rgba(124,108,255,.38);
@@ -453,21 +458,25 @@ button, input, textarea { font: inherit; }
   50% { box-shadow: 0 0 0 8px rgba(236,72,153,0); }
 }
 .c-send {
-  width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; border: 0;
-  background: #fff; color: #0b0d14; cursor: pointer; flex: none;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px; display: grid; place-items: center; border-radius: 50%; border: 0;
+  background: #fff; color: #0b0d14; cursor: pointer; flex: none; touch-action: manipulation;
   transition: transform .15s, box-shadow .2s, filter .15s;
   box-shadow: 0 4px 18px rgba(255,255,255,.22);
 }
 .c-send:hover { filter: brightness(1.05); box-shadow: 0 6px 24px rgba(255,255,255,.3); }
 .c-send:active { transform: scale(.92); }
 .c-send:disabled { opacity: .4; cursor: default; }
-.composer-bar .modes { display: flex; gap: .25rem; padding: 0 !important; overflow-x: auto; scrollbar-width: none; }
+.composer-bar .modes {
+  display: flex; gap: .25rem; padding: 0 !important; overflow-x: auto; scrollbar-width: none;
+  min-width: 0; flex: 1 1 auto; -webkit-overflow-scrolling: touch;
+}
 .composer-bar .modes::-webkit-scrollbar { display: none; }
 .composer-bar .mode {
-  display: inline-flex; align-items: center; gap: .35rem; height: 34px; padding: 0 .72rem !important;
+  display: inline-flex; align-items: center; gap: .35rem; height: 40px; min-height: 40px; padding: 0 .72rem !important;
   border-radius: 999px !important; border: 1px solid transparent !important; background: transparent !important;
   color: rgba(255,255,255,.55) !important; font: 500 13.5px var(--font) !important;
-  white-space: nowrap; cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+  white-space: nowrap; cursor: pointer; flex: none; touch-action: manipulation;
+  transition: background .15s, color .15s, border-color .15s;
 }
 .composer-bar .mode svg { width: 16px; height: 16px; }
 .composer-bar .mode.active {
@@ -475,10 +484,11 @@ button, input, textarea { font: inherit; }
   border-color: rgba(124,108,255,.32) !important;
 }
 .usage { text-align: center; font-size: 11.5px; opacity: .55; margin-top: .42rem; letter-spacing: .01em; }
-.voice-note { font-size: .7rem; color: var(--muted); margin-top: .25rem; text-align: center; }
 @media (max-width: 420px) {
+  .composer-wrap { padding-left: .65rem; padding-right: .65rem; }
   .composer-bar .mode:not(.active) span { display: none; }
-  .composer-bar .mode:not(.active) { padding: 0 .55rem !important; }
+  .composer-bar .mode:not(.active) { padding: 0 .5rem !important; }
+  .composer-bar { gap: .15rem; }
 }
 
 /* ——— Modals / gates ——— */
@@ -565,7 +575,6 @@ button, input, textarea { font: inherit; }
   .nav-actions .lang-toggle { display: inline-flex; }
 }
 
-.voice-hint { margin: .55rem 0 0; font-size: .72rem; color: var(--muted2); line-height: 1.4; text-align: center; }
 
 /* Hide translated nodes until QoriaI18n.apply() — avoids FR/EN flash & raw keys */
 html:not(.i18n-ready) [data-i18n],

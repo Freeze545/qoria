@@ -196,7 +196,14 @@ function proWeeklyResetMessage(lang = 'fr') {
 function friendlyProviderError(err, lang = 'fr') {
   const raw = String(err?.message || err || '');
   const lower = raw.toLowerCase();
-  if (/otpm|request too large|tokens? per minute|rate_limit|rate limit/i.test(raw)) {
+  if (/tokens? per minute|rate_limit|rate limit|tpm|rpm/i.test(raw)) {
+    return msg(
+      lang,
+      'Le serveur IA est saturé un instant. Attends 15 secondes puis réessaie.',
+      'The AI server is briefly saturated. Wait 15 seconds and try again.'
+    );
+  }
+  if (/otpm|request too large/i.test(raw)) {
     return msg(
       lang,
       'Message trop long pour le modèle (limite de tokens). Réessaie avec un texte plus court, ou une image plus petite.',
@@ -688,12 +695,14 @@ app.post('/api/chat', authRequired, async (req, res) => {
       ? Math.min(VISION_MAX_TOKENS, DEFAULT_MAX_TOKENS)
       : DEFAULT_MAX_TOKENS;
 
+    // Voice calls: force cheap/fast Groq model (lower TPM, lower latency)
+    const routeTask = (req.body && req.body.voice) ? 'fast' : task;
     const result = await routeChat({
       messages: apiMessages,
-      task,
+      task: routeTask,
       temperature,
-      max_tokens: maxTokens,
-      ensemble: Boolean(ensemble),
+      max_tokens: (req.body && req.body.voice) ? Math.min(maxTokens, 220) : maxTokens,
+      ensemble: Boolean(ensemble) && !(req.body && req.body.voice),
       userText,
     });
 
@@ -750,10 +759,11 @@ app.post('/api/chat', authRequired, async (req, res) => {
     });
   } catch (err) {
     console.error('[Qoria] chat error:', err.message);
-    const status = err.status || 500;
+    let status = err.status || 500;
+    if (/rate.?limit|tokens? per minute|tpm|rpm/i.test(String(err.message || ''))) status = 429;
     return res.status(status >= 400 && status < 600 ? status : 500).json({
       error: friendlyProviderError(err, requestLang(req)),
-      code: 'provider_error',
+      code: status === 429 ? 'rate_limit' : 'provider_error',
     });
   }
 });

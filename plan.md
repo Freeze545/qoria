@@ -41,6 +41,18 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 
 **Ensemble (Pro) :** 2 modèles + présentation comparée. Plafond `ENSEMBLE_DAILY_CAP` (défaut 10/jour) pour que le coût API ne dépasse pas le revenu abo.
 
+### Routage cheap-first (coûts)
+
+1. **Chat normal** (salut, Q&A court, résumé, écriture légère, petit code) → **Groq uniquement**.
+2. **Escalade payante** (OpenAI / Claude / Gemini / xAI) seulement si complexité réelle :
+   - raisonnement dur (preuve, stratégie multi-étapes, analyse longue)
+   - gros code / architecture / multi-fichiers
+   - vision (pièce jointe image)
+   - mode **ensemble** (Pro)
+3. Si la clé premium manque → repli Groq, pas d’échec silencieux.
+4. L’utilisateur ne voit jamais l’inscription fournisseur — marque Qoria seule.
+
+
 ## Coûts (ordres de grandeur CAD, 2026)
 
 | Poste | Free tier | Notes |
@@ -55,7 +67,7 @@ Un fournisseur n’est marqué **connecté** que si la clé env est présente **
 | Tavily search | free limited | Optionnel |
 | Stripe | 0 jusqu’à vrais paiements | Test key ≠ charge réelle |
 
-**Contrôle coûts :** Free 30 msg/jour ; Pro 500 ; ensemble 10/jour Pro ; images comptées ; pas d’agents multi-step illimités en v1.
+**Contrôle coûts :** Free = chat illimité + 3 images/jour + 1 vidéo/jour ; Pro = illimité (chat/images/vidéo) ; ensemble 10/jour Pro ; pas d’agents multi-step illimités en v1.
 
 **Règle business :** ne pas ouvrir ensemble / modèles premium sans marge (clés payantes + Pro).
 

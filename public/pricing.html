@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Tarifs — Qoria</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
 </head>
 <body>
@@ -18,7 +18,8 @@
       </div>
     </nav>
     <section class="pricing" style="padding-top:2rem">
-      <h2>Free & Pro</h2>
+      <p class="section-label">Tarifs</p>
+      <h2 class="section-title">Free & Pro</h2>
       <p style="text-align:center;color:var(--muted);max-width:32rem;margin:0 auto 1.5rem">
         Pro à 20&nbsp;$/mois CAD. Le paiement Stripe s’active dès que STRIPE_PRICE_ID est configuré.
         En mode test, tu peux activer Pro sans débit réel.
@@ -28,17 +29,19 @@
           <h3>Free</h3>
           <div class="price">0 $<span>/mois</span></div>
           <ul>
-            <li>30 messages / jour</li>
-            <li>Images Pollinations</li>
+            <li>Chat illimité</li>
+            <li>3 créations d’image / jour</li>
+            <li>1 vidéo courte / jour*</li>
             <li>Mémoire & fichiers</li>
           </ul>
+          <p style="color:var(--muted);font-size:.75rem;margin:.4rem 0 0">*vidéo quand le fournisseur est branché</p>
           <a class="btn" href="/signup.html" style="width:100%">Gratuit</a>
         </div>
         <div class="card price-card featured">
           <h3>Pro</h3>
           <div class="price">20 $<span>/mois CAD</span></div>
           <ul>
-            <li>500 messages / jour</li>
+            <li>Chat, images & vidéo illimités</li>
             <li>Mode ensemble (2 modèles)</li>
             <li>Plafonds anti-dépassement coûts API</li>
           </ul>

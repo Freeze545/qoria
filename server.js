@@ -33,10 +33,13 @@ const { generateImage, imageStatus } = require('./lib/images');
 const app = express();
 const PORT = process.env.PORT || 3850;
 const JWT_SECRET = process.env.JWT_SECRET || 'qoria-dev-insecure';
-const FREE_DAILY = Number(process.env.FREE_DAILY_MESSAGES || 30);
-const PRO_DAILY = Number(process.env.PRO_DAILY_MESSAGES || 500);
+const FREE_IMAGES = Number(process.env.FREE_DAILY_IMAGES || 3);
+const FREE_VIDEOS = Number(process.env.FREE_DAILY_VIDEOS || 1);
 const ENSEMBLE_CAP = Number(process.env.ENSEMBLE_DAILY_CAP || 10);
+const DEFAULT_MAX_TOKENS = Number(process.env.CHAT_MAX_TOKENS || 800);
+const VISION_MAX_TOKENS = Number(process.env.VISION_MAX_TOKENS || 600);
 const COOKIE = 'qoria_token';
+const VIDEO_CONFIGURED = Boolean(process.env.VIDEO_API_KEY && process.env.VIDEO_API_URL);
 
 const uploadDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
@@ -103,36 +106,147 @@ function findUser(data, idOrEmail) {
   return data.users.find((u) => u.id === idOrEmail || u.email === String(idOrEmail || '').toLowerCase());
 }
 
-function dailyLimit(user) {
-  return (user?.plan === 'pro') ? PRO_DAILY : FREE_DAILY;
+function isPro(user) {
+  return (user?.plan || 'free') === 'pro';
 }
 
-function checkAndIncUsage(userId, kind = 'messages') {
+function limitsFor(user) {
+  if (isPro(user)) {
+    return { images: null, videos: null, ensemble: ENSEMBLE_CAP, chat: null };
+  }
+  return { images: FREE_IMAGES, videos: FREE_VIDEOS, ensemble: 0, chat: null };
+}
+
+function friendlyProviderError(err) {
+  const raw = String(err?.message || err || '');
+  const lower = raw.toLowerCase();
+  if (/otpm|request too large|tokens? per minute|rate_limit|rate limit/i.test(raw)) {
+    return 'Message trop long pour le modèle (limite de tokens). Réessaie avec un texte plus court, ou une image plus petite.';
+  }
+  if (/context.?length|too many tokens|maximum context/i.test(raw)) {
+    return 'Le contexte est trop long. Commence une nouvelle conversation ou retire la pièce jointe.';
+  }
+  if (/insufficient_quota|billing|payment/i.test(lower)) {
+    return 'Capacité IA temporairement indisponible. Réessaie plus tard.';
+  }
+  if (/clé manquante|api key|unauthorized|401/i.test(lower)) {
+    return 'Fournisseur IA non configuré pour le moment.';
+  }
+  // Strip raw JSON / verbose provider dumps
+  if (raw.trim().startsWith('{') || raw.includes('"error"')) {
+    return 'Erreur du fournisseur IA. Réessaie dans un instant.';
+  }
+  return raw.slice(0, 180) || 'Erreur IA';
+}
+
+function checkUsage(userId, kind = 'messages') {
   const data = db.load();
   const user = findUser(data, userId);
-  if (!user) return { ok: false, error: 'Utilisateur introuvable' };
+  if (!user) return { ok: false, error: 'Utilisateur introuvable', code: 'no_user' };
   const usage = db.getUsage(data, userId);
-  const limit = kind === 'ensemble'
-    ? (user.plan === 'pro' ? ENSEMBLE_CAP : 0)
-    : dailyLimit(user);
-  const count = usage[kind] || 0;
-  if (kind === 'ensemble' && user.plan !== 'pro') {
-    return { ok: false, error: 'Le mode ensemble est réservé à Pro.', usage, limit: 0 };
+  const lims = limitsFor(user);
+  const pro = isPro(user);
+
+  if (kind === 'ensemble') {
+    if (!pro) {
+      return {
+        ok: false,
+        code: 'pro_required',
+        error: 'Fonction Pro — passe à Pro pour débloquer',
+        usage,
+        limit: 0,
+        limits: lims,
+      };
+    }
+    const count = usage.ensemble || 0;
+    if (count >= ENSEMBLE_CAP) {
+      return {
+        ok: false,
+        code: 'ensemble_limit',
+        error: `Limite ensemble atteinte (${ENSEMBLE_CAP}/jour).`,
+        usage,
+        limit: ENSEMBLE_CAP,
+        limits: lims,
+      };
+    }
+    return { ok: true, usage, limit: ENSEMBLE_CAP, limits: lims, kind, pending: true };
   }
-  if (count >= limit) {
-    return {
-      ok: false,
-      error: kind === 'ensemble'
-        ? `Limite ensemble atteinte (${ENSEMBLE_CAP}/jour).`
-        : `Limite quotidienne atteinte (${limit} messages). Passe à Pro pour continuer.`,
-      usage,
-      limit,
-    };
+
+  if (kind === 'images') {
+    const limit = lims.images;
+    const count = usage.images || 0;
+    if (limit != null && count >= limit) {
+      return {
+        ok: false,
+        code: 'image_limit',
+        error: `Limite d’images atteinte (${limit}/jour en Free). Passe à Pro pour illimité.`,
+        usage,
+        limit,
+        limits: lims,
+      };
+    }
+    return { ok: true, usage, limit: limit == null ? null : limit, limits: lims, kind, pending: true };
   }
-  usage[kind] = count + 1;
+
+  if (kind === 'videos') {
+    if (!VIDEO_CONFIGURED) {
+      return {
+        ok: false,
+        code: 'video_unavailable',
+        error: 'Vidéo bientôt disponible — clé fournisseur requise.',
+        usage,
+        limit: lims.videos,
+        limits: lims,
+        stub: true,
+      };
+    }
+    const limit = lims.videos;
+    const count = usage.videos || 0;
+    if (limit != null && count >= limit) {
+      return {
+        ok: false,
+        code: 'video_limit',
+        error: `Limite vidéo atteinte (${limit}/jour en Free). Passe à Pro pour illimité.`,
+        usage,
+        limit,
+        limits: lims,
+      };
+    }
+    return { ok: true, usage, limit: limit == null ? null : limit, limits: lims, kind, pending: true };
+  }
+
+  // Chat messages: unlimited (track after success)
+  return { ok: true, usage, limit: null, limits: lims, kind: 'messages', pending: true };
+}
+
+function commitUsage(userId, kind = 'messages') {
+  const data = db.load();
+  const usage = db.getUsage(data, userId);
+  const lims = limitsFor(findUser(data, userId));
+  if (kind === 'ensemble') usage.ensemble = (usage.ensemble || 0) + 1;
+  else if (kind === 'images') usage.images = (usage.images || 0) + 1;
+  else if (kind === 'videos') usage.videos = (usage.videos || 0) + 1;
+  else usage.messages = (usage.messages || 0) + 1;
   db.setUsage(data, userId, usage);
   db.save(data);
-  return { ok: true, usage, limit };
+  return { usage, limits: lims, limit: kind === 'ensemble' ? ENSEMBLE_CAP : kind === 'images' ? lims.images : kind === 'videos' ? lims.videos : null };
+}
+
+/** @deprecated prefer checkUsage + commitUsage — kept for any leftover calls */
+function checkAndIncUsage(userId, kind = 'messages') {
+  const checked = checkUsage(userId, kind);
+  if (!checked.ok) return checked;
+  const committed = commitUsage(userId, kind);
+  return { ...checked, ...committed, ok: true };
+}
+
+function usagePayload(user, usage) {
+  const lims = limitsFor(user);
+  return {
+    usage,
+    limits: lims,
+    plan: user?.plan || 'free',
+  };
 }
 
 function memoriesFor(userId) {
@@ -182,7 +296,14 @@ app.get('/api/status', authOptional, async (_req, res) => {
       search: Boolean(process.env.TAVILY_API_KEY),
       ensemble: true,
     },
-    limits: { freeDaily: FREE_DAILY, proDaily: PRO_DAILY, ensembleDaily: ENSEMBLE_CAP },
+    limits: {
+      freeImages: FREE_IMAGES,
+      freeVideos: FREE_VIDEOS,
+      ensembleDaily: ENSEMBLE_CAP,
+      chatUnlimited: true,
+      proUnlimitedMedia: true,
+    },
+    videoConfigured: VIDEO_CONFIGURED,
     pricing: { free: '0 $/mois', pro: '20 $/mois CAD' },
   });
 });
@@ -249,8 +370,7 @@ app.get('/api/auth/me', authRequired, (req, res) => {
   res.json({
     ok: true,
     user: publicUser(user),
-    usage,
-    limit: dailyLimit(user),
+    ...usagePayload(user, usage),
   });
 });
 
@@ -313,8 +433,19 @@ app.post('/api/chat', authRequired, async (req, res) => {
       return res.status(400).json({ error: 'messages requis' });
     }
 
-    const inc = checkAndIncUsage(req.user.id, ensemble ? 'ensemble' : 'messages');
-    if (!inc.ok) return res.status(429).json({ error: inc.error, usage: inc.usage, limit: inc.limit });
+    const kind = ensemble ? 'ensemble' : 'messages';
+    const checked = checkUsage(req.user.id, kind);
+    if (!checked.ok) {
+      const status = checked.code === 'pro_required' ? 403 : 429;
+      return res.status(status).json({
+        error: checked.error,
+        code: checked.code,
+        usage: checked.usage,
+        limit: checked.limit,
+        limits: checked.limits,
+        pricingUrl: '/pricing.html',
+      });
+    }
 
     const lastUser = [...messages].reverse().find((m) => m.role === 'user');
     const userText = extractText(lastUser?.content);
@@ -351,12 +482,17 @@ app.post('/api/chat', authRequired, async (req, res) => {
         .map((m) => ({ role: m.role, content: m.content })),
     ];
 
+    const maxTokens = hasVision
+      ? Math.min(VISION_MAX_TOKENS, DEFAULT_MAX_TOKENS)
+      : DEFAULT_MAX_TOKENS;
+
     const result = await routeChat({
       messages: apiMessages,
       task,
       temperature,
-      max_tokens: 2048,
+      max_tokens: maxTokens,
       ensemble: Boolean(ensemble),
+      userText,
     });
 
     // Persist
@@ -396,6 +532,7 @@ app.post('/api/chat', authRequired, async (req, res) => {
     data.messages.push(userMsg, asstMsg);
     db.save(data);
 
+    const committed = commitUsage(req.user.id, kind);
     return res.json({
       role: 'assistant',
       content: result.content,
@@ -405,14 +542,16 @@ app.post('/api/chat', authRequired, async (req, res) => {
       ensemble: Boolean(result.ensemble),
       task,
       conversationId: convId,
-      usage: inc.usage,
-      limit: inc.limit,
+      usage: committed.usage,
+      limit: committed.limit,
+      limits: committed.limits,
     });
   } catch (err) {
     console.error('[Qoria] chat error:', err.message);
     const status = err.status || 500;
     return res.status(status >= 400 && status < 600 ? status : 500).json({
-      error: err.message || 'Erreur IA',
+      error: friendlyProviderError(err),
+      code: 'provider_error',
     });
   }
 });
@@ -425,20 +564,24 @@ app.post('/api/image', authRequired, async (req, res) => {
     const data = db.load();
     const user = findUser(data, req.user.id);
     if (!user) return res.status(401).json({ error: 'Session invalide' });
-    const usage = db.getUsage(data, req.user.id);
-    const lim = dailyLimit(user);
-    if ((usage.images || 0) >= lim) {
-      return res.status(429).json({ error: 'Limite images quotidienne atteinte', usage, limit: lim });
+    const checked = checkUsage(req.user.id, 'images');
+    if (!checked.ok) {
+      return res.status(429).json({
+        error: checked.error,
+        code: checked.code,
+        usage: checked.usage,
+        limit: checked.limit,
+        limits: checked.limits,
+        pricingUrl: '/pricing.html',
+      });
     }
-    usage.images = (usage.images || 0) + 1;
-    db.setUsage(data, req.user.id, usage);
-    db.save(data);
 
     const out = await generateImage(prompt, { size: req.body?.size || '1024x1024' });
-    return res.json(out);
+    const committed = commitUsage(req.user.id, 'images');
+    return res.json({ ...out, usage: committed.usage, limits: committed.limits });
   } catch (err) {
     console.error('[Qoria] image:', err.message);
-    return res.status(err.status || 500).json({ error: err.message || 'Erreur image' });
+    return res.status(err.status || 500).json({ error: friendlyProviderError(err) });
   }
 });
 
@@ -454,10 +597,17 @@ app.post('/api/upload', authRequired, upload.single('file'), async (req, res) =>
     if (mime.startsWith('image/')) {
       analysis.type = 'image';
       analysis.vision = true;
-      // Return data URL hint for client to include in multimodal message
       const buf = fs.readFileSync(file.path);
-      const b64 = `data:${mime};base64,${buf.toString('base64')}`;
-      return res.json({ ok: true, url, mime, name: file.originalname, size: file.size, dataUrl: b64, analysis });
+      // ~1.5MB base64 payload cap — large iPhone photos blow Groq OTPM/context
+      if (buf.length > 1.5 * 1024 * 1024) {
+        return res.status(413).json({
+          error: 'Image trop lourde. Réessaie — Qoria compresse automatiquement; si ça continue, choisis une photo plus petite.',
+          code: 'image_too_large',
+        });
+      }
+      const outMime = mime === 'image/jpg' ? 'image/jpeg' : mime;
+      const b64 = `data:${outMime};base64,${buf.toString('base64')}`;
+      return res.json({ ok: true, url, mime: outMime, name: file.originalname, size: file.size, dataUrl: b64, analysis });
     }
 
     if (mime === 'text/plain' || file.originalname.endsWith('.txt') || file.originalname.endsWith('.md')) {
@@ -597,18 +747,53 @@ app.post('/api/billing/dev-pro', authRequired, (req, res) => {
   res.json({ ok: true, user: publicUser(user) });
 });
 
-// Video stub
+// Video — honest stub unless VIDEO_* configured; Free 1/day, Pro unlimited when live
 app.post('/api/video', authRequired, (req, res) => {
   const prompt = String(req.body?.prompt || '').trim();
-  if (!process.env.VIDEO_API_KEY || !process.env.VIDEO_API_URL) {
-    return res.json({
+  const data = db.load();
+  const user = findUser(data, req.user.id);
+  if (!user) return res.status(401).json({ error: 'Session invalide' });
+
+  if (!VIDEO_CONFIGURED) {
+    const lims = limitsFor(user);
+    const msg = isPro(user)
+      ? 'Vidéo bientôt disponible — clé fournisseur requise.'
+      : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.';
+    return res.status(501).json({
       ok: false,
       stub: true,
-      message: 'Vidéo non branchée. Ajoute VIDEO_API_KEY + VIDEO_API_URL pour activer.',
+      code: 'video_unavailable',
+      error: msg,
+      message: msg,
       prompt,
+      limits: lims,
+      pricingUrl: '/pricing.html',
     });
   }
-  return res.status(501).json({ error: 'Hook vidéo générique à compléter pour ton fournisseur' });
+
+  const checked = checkUsage(req.user.id, 'videos');
+  if (!checked.ok) {
+    const status = checked.code === 'pro_required' ? 403 : 429;
+    return res.status(status).json({
+      error: checked.error,
+      code: checked.code,
+      usage: checked.usage,
+      limit: checked.limit,
+      limits: checked.limits,
+      pricingUrl: '/pricing.html',
+    });
+  }
+
+  // Don't burn Free quota until a real video provider returns success
+  return res.status(501).json({
+    ok: false,
+    stub: true,
+    code: 'video_not_implemented',
+    error: 'Hook vidéo générique à compléter pour ton fournisseur.',
+    prompt,
+    usage: checked.usage,
+    limits: checked.limits,
+  });
 });
 
 // SPA-ish routes

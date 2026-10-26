@@ -11,11 +11,38 @@
   let mode = 'chat';
   let attach = null; // { kind, dataUrl, text, name }
   let busy = false;
+  let caps = { video: false };
+  let limits = { images: 3, videos: 1, ensemble: 0, chat: null };
   const history = []; // {role, content} for API
 
   const $ = (id) => document.getElementById(id);
   const messagesEl = $('messages');
   const emptyEl = $('empty');
+
+  function clearAttach() {
+    attach = null;
+    const preview = $('attachPreview');
+    if (preview) preview.hidden = true;
+    const thumb = $('attachThumb');
+    if (thumb) {
+      thumb.removeAttribute('src');
+      thumb.style.display = 'none';
+    }
+    const label = $('attachLabel');
+    if (label) label.textContent = '';
+    const file = $('fileInput');
+    if (file) file.value = '';
+  }
+
+  function showProGate(message) {
+    const bg = $('proGate');
+    const msg = $('proGateMsg');
+    if (msg) msg.textContent = message || 'Fonction Pro — passe à Pro pour débloquer';
+    if (bg) bg.classList.add('show');
+  }
+  function hideProGate() {
+    $('proGate')?.classList.remove('show');
+  }
 
   async function api(path, opts = {}) {
     const r = await fetch(path, {
@@ -29,7 +56,13 @@
       location.href = '/login.html';
       throw new Error('Non connecté');
     }
-    if (!r.ok) throw new Error(d.error || ('Erreur ' + r.status));
+    if (!r.ok) {
+      const err = new Error(d.error || ('Erreur ' + r.status));
+      err.code = d.code;
+      err.payload = d;
+      err.status = r.status;
+      throw err;
+    }
     return d;
   }
 
@@ -38,7 +71,8 @@
       const d = await api('/api/auth/me');
       user = d.user;
       $('planChip').textContent = (user.plan || 'free').toUpperCase();
-      updateUsage(d.usage, d.limit);
+      if (d.limits) limits = d.limits;
+      updateUsage(d.usage, d.limits);
       return true;
     } catch {
       location.href = '/login.html';
@@ -46,12 +80,18 @@
     }
   }
 
-  function updateUsage(usage, limit) {
+  function updateUsage(usage, lims) {
     const u = usage || {};
-    const lim = limit || 30;
-    const msg = u.messages || 0;
-    $('usageChip').textContent = `${msg}/${lim} messages · ${u.images || 0} images`;
-    $('usageLine').textContent = `Aujourd’hui : ${msg}/${lim} messages` + (user?.plan === 'pro' ? ' · Pro' : ' · Free');
+    if (lims) limits = lims;
+    const plan = (user?.plan || 'free');
+    const isPro = plan === 'pro';
+    const imgUsed = u.images || 0;
+    const vidUsed = u.videos || 0;
+    const imgLim = isPro ? '∞' : (limits.images ?? 3);
+    const vidLim = isPro ? '∞' : (limits.videos ?? 1);
+    const line = `Images : ${imgUsed}/${imgLim} · Vidéo : ${vidUsed}/${vidLim} · ${isPro ? 'Pro' : 'Free'}`;
+    if ($('usageChip')) $('usageChip').textContent = line;
+    if ($('usageLine')) $('usageLine').textContent = line + (isPro ? '' : ' · chat illimité');
   }
 
   async function loadConvs() {
@@ -95,7 +135,6 @@
     const bubble = document.createElement('div');
     bubble.className = 'bubble';
     if (typeof content === 'string') {
-      // basic markdown-ish: images markdown ![alt](url)
       const html = escapeHtml(content)
         .replace(/!\[([^\]]*)\]\((https?:[^)]+)\)/g, '<img class="gen" src="$2" alt="$1" />')
         .replace(/(https?:\/\/image\.pollinations\.ai\/[^\s<]+)/g, '<img class="gen" src="$1" alt="image" />');
@@ -126,16 +165,34 @@
     closeSidebar();
   }
 
-  // modes
+  function isProUser() {
+    return (user?.plan || 'free') === 'pro';
+  }
+
+  function selectMode(next) {
+    // Ensemble is Pro-only — warn immediately
+    if (next === 'ensemble' && !isProUser()) {
+      showProGate('Fonction Pro — passe à Pro pour débloquer');
+      return false;
+    }
+    // Video: if provider not configured, honest bientôt (not a silent fail)
+    if (next === 'video' && !caps.video) {
+      showProGate(
+        isProUser()
+          ? 'Vidéo bientôt disponible — clé fournisseur requise.'
+          : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.'
+      );
+      return false;
+    }
+    document.querySelectorAll('.mode').forEach((b) => b.classList.toggle('active', b.dataset.mode === next));
+    mode = next;
+    return true;
+  }
+
   document.querySelectorAll('.mode').forEach((btn) => {
-    btn.onclick = () => {
-      document.querySelectorAll('.mode').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      mode = btn.dataset.mode;
-    };
+    btn.onclick = () => selectMode(btn.dataset.mode);
   });
 
-  // sidebar
   function openSidebar() {
     $('sidebar').classList.add('mobile-open');
     $('overlay').classList.add('show');
@@ -154,18 +211,53 @@
     location.href = '/';
   };
 
+  $('btnProGateClose')?.addEventListener('click', hideProGate);
+  $('btnProGatePricing')?.addEventListener('click', () => { location.href = '/pricing.html'; });
+  $('proGate')?.addEventListener('click', (e) => { if (e.target.id === 'proGate') hideProGate(); });
+
+  // Compress / resize large images before upload (iPhone photos blow OTPM/context)
+  function compressImageFile(file, maxSide = 1280, quality = 0.72) {
+    return new Promise((resolve) => {
+      if (!file.type.startsWith('image/')) return resolve(file);
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        let { width, height } = img;
+        const scale = Math.min(1, maxSide / Math.max(width, height));
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) return resolve(file);
+            const name = (file.name || 'photo.jpg').replace(/\.\w+$/, '') + '.jpg';
+            resolve(new File([blob], name, { type: 'image/jpeg' }));
+          },
+          'image/jpeg',
+          quality
+        );
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+      img.src = url;
+    });
+  }
+
   // attach
   $('btnAttach').onclick = () => $('fileInput').click();
-  $('btnClearAttach').onclick = () => {
-    attach = null;
-    $('attachPreview').hidden = true;
-  };
+  $('btnClearAttach').onclick = () => clearAttach();
   $('fileInput').onchange = async () => {
-    const file = $('fileInput').files?.[0];
-    if (!file) return;
-    const fd = new FormData();
-    fd.append('file', file);
+    const raw = $('fileInput').files?.[0];
+    if (!raw) return;
+    let file = raw;
     try {
+      if (raw.type.startsWith('image/')) file = await compressImageFile(raw);
+      const fd = new FormData();
+      fd.append('file', file);
       const r = await fetch('/api/upload', {
         method: 'POST',
         credentials: 'include',
@@ -189,6 +281,7 @@
       $('attachPreview').hidden = false;
     } catch (e) {
       alert(e.message);
+      clearAttach();
     }
     $('fileInput').value = '';
   };
@@ -221,36 +314,94 @@
     recognition.start();
   };
 
+  function handleApiError(err) {
+    const code = err.code || err.payload?.code;
+    if (code === 'pro_required' || err.status === 403) {
+      showProGate(err.message || 'Fonction Pro — passe à Pro pour débloquer');
+      return;
+    }
+    if (code === 'image_limit' || code === 'video_limit') {
+      showProGate(err.message || 'Limite Free atteinte — passe à Pro pour illimité');
+      return;
+    }
+    if (code === 'video_unavailable') {
+      showProGate(err.message || 'Vidéo bientôt disponible — clé fournisseur requise.');
+      return;
+    }
+    pushBubble('assistant', '⚠️ ' + (err.message || 'Erreur'), { skipHistory: true });
+  }
+
   // send
   $('composer').onsubmit = async (e) => {
     e.preventDefault();
     if (busy) return;
     const text = $('input').value.trim();
-    if (!text && !attach) return;
+    if (!text && !attach && mode !== 'video') return;
+
+    // Gate again at send time for ensemble / video
+    if (mode === 'ensemble' && !isProUser()) {
+      showProGate('Fonction Pro — passe à Pro pour débloquer');
+      return;
+    }
+    if (mode === 'video' && !caps.video) {
+      showProGate(
+        isProUser()
+          ? 'Vidéo bientôt disponible — clé fournisseur requise.'
+          : 'Vidéo bientôt disponible (1/jour en Free quand branchée). Ou passe à Pro.'
+      );
+      return;
+    }
 
     busy = true;
     $('btnSend').disabled = true;
 
     try {
+      if (mode === 'video') {
+        const prompt = text || 'une courte vidéo';
+        pushBubble('user', '🎬 ' + prompt);
+        $('input').value = '';
+        clearAttach();
+        try {
+          const d = await api('/api/video', {
+            method: 'POST',
+            body: JSON.stringify({ prompt }),
+          });
+          if (d.usage) updateUsage(d.usage, d.limits);
+          pushBubble('assistant', d.message || d.error || 'Vidéo non disponible.', { skipHistory: true });
+        } catch (err) {
+          if (err.payload?.usage) updateUsage(err.payload.usage, err.payload.limits);
+          handleApiError(err);
+        }
+        return;
+      }
+
       if (mode === 'image') {
         const prompt = text || 'une image abstraite indigo et violet';
         pushBubble('user', '🖼️ ' + prompt);
         $('input').value = '';
+        clearAttach();
         const thinking = document.createElement('div');
         thinking.className = 'msg assistant';
         thinking.innerHTML = '<div class="bubble">Génération de l’image…</div>';
         messagesEl.appendChild(thinking);
-        const d = await api('/api/image', {
-          method: 'POST',
-          body: JSON.stringify({ prompt }),
-        });
-        thinking.remove();
-        const url = d.url || d.b64;
-        pushBubble('assistant', url ? `Voici ton image (${d.provider || 'qoria'}):\n\n![image](${url})` : 'Pas d’image renvoyée.', {
-          model: d.model,
-          provider: d.provider,
-        });
-        if (d.url) history.push({ role: 'assistant', content: 'Image générée: ' + d.url });
+        try {
+          const d = await api('/api/image', {
+            method: 'POST',
+            body: JSON.stringify({ prompt }),
+          });
+          thinking.remove();
+          const url = d.url || d.b64;
+          pushBubble('assistant', url ? `Voici ton image (${d.provider || 'qoria'}):\n\n![image](${url})` : 'Pas d’image renvoyée.', {
+            model: d.model,
+            provider: d.provider,
+          });
+          if (d.url) history.push({ role: 'assistant', content: 'Image générée: ' + d.url });
+          if (d.usage) updateUsage(d.usage, d.limits);
+        } catch (err) {
+          thinking.remove();
+          if (err.payload?.usage) updateUsage(err.payload.usage, err.payload.limits);
+          handleApiError(err);
+        }
         return;
       }
 
@@ -273,8 +424,7 @@
         pushBubble('user', text);
         history.push({ role: 'user', content });
       }
-      attach = null;
-      $('attachPreview').hidden = true;
+      clearAttach();
       $('input').value = '';
 
       const pending = document.createElement('div');
@@ -283,28 +433,31 @@
       messagesEl.appendChild(pending);
 
       const payloadMessages = history.map((m) => ({ role: m.role, content: m.content }));
-      // Avoid duplicating last if already pushed — history already has it
 
-      const d = await api('/api/chat', {
-        method: 'POST',
-        body: JSON.stringify({
-          messages: payloadMessages,
-          conversationId,
-          mode: 'chat',
-          ensemble: mode === 'ensemble',
-        }),
-      });
-      pending.remove();
-      conversationId = d.conversationId || conversationId;
-      // replace last history assistant if any — we pushed user already; push assistant
-      // Remove the user we double-count? history already has user; add assistant only
-      const last = history[history.length - 1];
-      if (last && last.role === 'assistant') history.pop();
-      pushBubble('assistant', d.content, { model: d.model, provider: d.provider });
-      if (d.usage) updateUsage(d.usage, d.limit);
-      loadConvs();
+      try {
+        const d = await api('/api/chat', {
+          method: 'POST',
+          body: JSON.stringify({
+            messages: payloadMessages,
+            conversationId,
+            mode: 'chat',
+            ensemble: mode === 'ensemble',
+          }),
+        });
+        pending.remove();
+        conversationId = d.conversationId || conversationId;
+        const last = history[history.length - 1];
+        if (last && last.role === 'assistant') history.pop();
+        pushBubble('assistant', d.content, { model: d.model, provider: d.provider });
+        if (d.usage) updateUsage(d.usage, d.limits);
+        loadConvs();
+      } catch (err) {
+        pending.remove();
+        if (err.payload?.usage) updateUsage(err.payload.usage, err.payload.limits);
+        handleApiError(err);
+      }
     } catch (err) {
-      pushBubble('assistant', '⚠️ ' + err.message, { skipHistory: true });
+      handleApiError(err);
     } finally {
       busy = false;
       $('btnSend').disabled = false;
@@ -380,11 +533,178 @@
     $('btnSmoke').textContent = 'Relancer les tests';
   };
 
+
+  // ——— Voice call (speech in → chat → TTS out) ———
+  let callActive = false;
+  let callRec = null;
+  let callListening = false;
+
+  function setCallUI(state, status, transcript) {
+    const el = $('voiceCall');
+    if (!el) return;
+    el.classList.remove('listening', 'speaking');
+    if (state) el.classList.add(state);
+    if (status != null && $('voiceStatus')) $('voiceStatus').textContent = status;
+    if (transcript != null && $('voiceTranscript')) $('voiceTranscript').textContent = transcript;
+  }
+
+  function stripForSpeech(text) {
+    return String(text || '')
+      .replace(/```[\s\S]*?```/g, ' ')
+      .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+      .replace(/[#>*_`~]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 600);
+  }
+
+  function speakText(text) {
+    return new Promise((resolve) => {
+      if (!window.speechSynthesis) return resolve();
+      try { window.speechSynthesis.cancel(); } catch {}
+      const u = new SpeechSynthesisUtterance(stripForSpeech(text));
+      u.lang = 'fr-CA';
+      u.rate = 1.02;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      setCallUI('speaking', 'Qoria parle…', stripForSpeech(text).slice(0, 180));
+      window.speechSynthesis.speak(u);
+    });
+  }
+
+  async function voiceSend(text) {
+    const cleaned = String(text || '').trim();
+    if (!cleaned || !callActive) return;
+    pushBubble('user', cleaned);
+    history.push({ role: 'user', content: cleaned });
+    setCallUI('speaking', 'Qoria réfléchit…', cleaned);
+    try {
+      const d = await api('/api/chat', {
+        method: 'POST',
+        body: JSON.stringify({
+          messages: history.map((m) => ({ role: m.role, content: m.content })),
+          conversationId,
+          mode: 'chat',
+          ensemble: false,
+        }),
+      });
+      conversationId = d.conversationId || conversationId;
+      pushBubble('assistant', d.content, { model: d.model, provider: d.provider });
+      if (d.usage) updateUsage(d.usage, d.limits);
+      loadConvs();
+      await speakText(d.content);
+    } catch (err) {
+      handleApiError(err);
+      await speakText(err.message || 'Une erreur est survenue.');
+    }
+  }
+
+  function stopCallRecognition() {
+    callListening = false;
+    try { callRec && callRec.stop(); } catch {}
+    callRec = null;
+  }
+
+  function startCallListen() {
+    if (!callActive) return;
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      setCallUI('', 'Reconnaissance vocale non supportée sur ce navigateur.', '');
+      return;
+    }
+    stopCallRecognition();
+    callRec = new SR();
+    callRec.lang = 'fr-CA';
+    callRec.interimResults = true;
+    callRec.continuous = false;
+    let finalText = '';
+    callRec.onstart = () => {
+      callListening = true;
+      setCallUI('listening', 'À toi — parle maintenant', '');
+    };
+    callRec.onresult = (ev) => {
+      let interim = '';
+      finalText = '';
+      for (let i = 0; i < ev.results.length; i++) {
+        const t = ev.results[i][0].transcript;
+        if (ev.results[i].isFinal) finalText += t;
+        else interim += t;
+      }
+      setCallUI('listening', 'À toi — parle maintenant', finalText || interim);
+    };
+    callRec.onerror = () => {
+      callListening = false;
+      if (callActive) setTimeout(startCallListen, 400);
+    };
+    callRec.onend = async () => {
+      callListening = false;
+      const said = finalText.trim();
+      if (!callActive) return;
+      if (said) {
+        await voiceSend(said);
+      }
+      if (callActive) startCallListen();
+    };
+    try { callRec.start(); } catch (e) {
+      setTimeout(() => { if (callActive) startCallListen(); }, 500);
+    }
+  }
+
+  function endVoiceCall() {
+    callActive = false;
+    stopCallRecognition();
+    try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch {}
+    $('voiceCall')?.classList.remove('show', 'listening', 'speaking');
+    $('btnVoiceCall')?.classList.remove('live');
+  }
+
+  function startVoiceCall() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      alert('Appel vocal non supporté sur ce navigateur (essaie Chrome).');
+      return;
+    }
+    if (!window.speechSynthesis) {
+      alert('Synthèse vocale non supportée sur ce navigateur.');
+      return;
+    }
+    callActive = true;
+    $('voiceCall')?.classList.add('show');
+    $('btnVoiceCall')?.classList.add('live');
+    setCallUI('listening', 'Dis bonjour à Qoria…', '');
+    // Short greeting then listen
+    speakText('Allô, c’est Qoria. Je t’écoute.').then(() => {
+      if (callActive) startCallListen();
+    });
+  }
+
+  $('btnVoiceCall')?.addEventListener('click', () => {
+    if (callActive) endVoiceCall();
+    else startVoiceCall();
+  });
+  $('btnEndCall')?.addEventListener('click', endVoiceCall);
+
+
   // boot
   (async () => {
     if (!(await ensureAuth())) return;
     await loadConvs();
-    // warm status
-    try { await api('/api/status'); } catch {}
+    try {
+      const st = await api('/api/status');
+      caps.video = Boolean(st.capabilities?.video || st.videoConfigured);
+      if (st.limits) {
+        limits = {
+          images: st.limits.freeImages ?? 3,
+          videos: st.limits.freeVideos ?? 1,
+          ensemble: st.limits.ensembleDaily ?? 10,
+          chat: null,
+        };
+        // refresh chip with plan-aware limits after status
+        const me = await api('/api/auth/me');
+        if (me.limits) limits = me.limits;
+        updateUsage(me.usage, me.limits);
+      }
+    } catch {}
   })();
 })();

@@ -53,8 +53,9 @@
     const d = await r.json().catch(() => ({}));
     if (r.status === 401) {
       localStorage.removeItem('qoria_token');
+      try { alert(d.error || 'Session expirée — reconnecte-toi.'); } catch {}
       location.href = '/login.html';
-      throw new Error('Non connecté');
+      throw new Error(d.error || 'Non connecté');
     }
     if (!r.ok) {
       const err = new Error(d.error || ('Erreur ' + r.status));

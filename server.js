@@ -86,7 +86,13 @@ function authOptional(req, _res, next) {
 
 function authRequired(req, res, next) {
   authOptional(req, res, () => {
-    if (!req.user) return res.status(401).json({ error: 'Connexion requise' });
+    if (!req.user) return res.status(401).json({ error: 'Connexion requise', code: 'auth_required' });
+    try {
+      if (!findUser(db.load(), req.user.id)) {
+        res.clearCookie(COOKIE);
+        return res.status(401).json({ error: 'Session expirée — reconnecte-toi.', code: 'session_expired' });
+      }
+    } catch { /* ignore */ }
     next();
   });
 }
@@ -436,7 +442,7 @@ app.post('/api/chat', authRequired, async (req, res) => {
     const kind = ensemble ? 'ensemble' : 'messages';
     const checked = checkUsage(req.user.id, kind);
     if (!checked.ok) {
-      const status = checked.code === 'pro_required' ? 403 : 429;
+      const status = checked.code === 'no_user' ? 401 : checked.code === 'pro_required' ? 403 : 429;
       return res.status(status).json({
         error: checked.error,
         code: checked.code,
@@ -569,7 +575,7 @@ app.post('/api/image', authRequired, async (req, res) => {
     if (!user) return res.status(401).json({ error: 'Session invalide' });
     const checked = checkUsage(req.user.id, 'images');
     if (!checked.ok) {
-      return res.status(429).json({
+      return res.status(checked.code === 'no_user' ? 401 : 429).json({
         error: checked.error,
         code: checked.code,
         usage: checked.usage,
@@ -776,7 +782,7 @@ app.post('/api/video', authRequired, (req, res) => {
 
   const checked = checkUsage(req.user.id, 'videos');
   if (!checked.ok) {
-    const status = checked.code === 'pro_required' ? 403 : 429;
+    const status = checked.code === 'no_user' ? 401 : checked.code === 'pro_required' ? 403 : 429;
     return res.status(status).json({
       error: checked.error,
       code: checked.code,

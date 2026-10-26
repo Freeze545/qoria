@@ -571,22 +571,56 @@
       .replace(/```[\s\S]*?```/g, ' ')
       .replace(/!\[[^\]]*\]\([^)]+\)/g, ' ')
       .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
-      .replace(/[#>*_`~]/g, ' ')
+      .replace(/https?:\/\/\S+/g, ' ')
+      .replace(/[\p{Extended_Pictographic}\p{Emoji_Presentation}\u{FE0F}\u{200D}\u{20E3}\u{1F3FB}-\u{1F3FF}]/gu, '')
+      .replace(/[#>*_`~|\\^=<>{}\[\]•●▪►→←↑↓✓✔✗×÷§©®™°…]+/g, ' ')
+      .replace(/^\s*[-+]\s+/gm, '')
+      .replace(/\s*\n+\s*/g, '. ')
+      .replace(/([.!?,;:])\s*[.]+/g, '$1')
       .replace(/\s+/g, ' ')
       .trim()
       .slice(0, 600);
+  }
+
+  let bestVoice = null;
+  function pickVoice() {
+    const vs = (window.speechSynthesis && speechSynthesis.getVoices()) || [];
+    const fr = vs.filter((v) => /^fr/i.test(v.lang));
+    if (!fr.length) return null;
+    const score = (v) => {
+      let s = 0;
+      const n = v.name.toLowerCase();
+      if (/fr[-_]ca/i.test(v.lang)) s += 30; else if (/fr[-_]fr/i.test(v.lang)) s += 20;
+      if (/natural|neural|online|premium|enhanced|siri/.test(n)) s += 50;
+      if (/google/.test(n)) s += 25;
+      if (/amélie|amelie|thomas|audrey|aurélie|denise|sylvie|antoine|jean|marie/.test(n)) s += 10;
+      if (/compact|espeak/.test(n)) s -= 40;
+      if (v.localService === false) s += 5;
+      return s;
+    };
+    return fr.sort((a, b) => score(b) - score(a))[0];
+  }
+  if (window.speechSynthesis) {
+    bestVoice = pickVoice();
+    speechSynthesis.onvoiceschanged = () => { bestVoice = pickVoice(); };
   }
 
   function speakText(text) {
     return new Promise((resolve) => {
       if (!window.speechSynthesis) return resolve();
       try { window.speechSynthesis.cancel(); } catch {}
-      const u = new SpeechSynthesisUtterance(stripForSpeech(text));
-      u.lang = 'fr-CA';
-      u.rate = 1.02;
+      const clean = stripForSpeech(text);
+      if (!clean) return resolve();
+      const u = new SpeechSynthesisUtterance(clean);
+      bestVoice = bestVoice || pickVoice();
+      if (bestVoice) u.voice = bestVoice;
+      u.lang = bestVoice ? bestVoice.lang : 'fr-CA';
+      u.rate = 0.95;
+      u.pitch = 1.0;
+      u.volume = 1;
       u.onend = () => resolve();
       u.onerror = () => resolve();
-      setCallUI('speaking', 'Qoria parle…', stripForSpeech(text).slice(0, 180));
+      setCallUI('speaking', 'Qoria parle…', clean.slice(0, 180));
       window.speechSynthesis.speak(u);
     });
   }
@@ -605,6 +639,7 @@
           conversationId,
           mode: 'chat',
           ensemble: false,
+          voice: true,
         }),
       });
       conversationId = d.conversationId || conversationId;

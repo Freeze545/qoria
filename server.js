@@ -474,7 +474,10 @@ app.post('/api/chat', authRequired, async (req, res) => {
       }
     }
 
-    const system = buildSystem(req.user.id, searchNote);
+    let system = buildSystem(req.user.id, searchNote);
+    if (req.body && req.body.voice) {
+      system += '\n\nMODE APPEL VOCAL: ta réponse sera lue à voix haute. Réponds en 1 à 3 phrases courtes, naturelles et conversationnelles, en français parlé. Aucun markdown, aucune liste, aucun emoji, aucun symbole, aucune URL.';
+    }
     const apiMessages = [
       { role: 'system', content: system },
       ...messages

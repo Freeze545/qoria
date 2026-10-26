@@ -66,47 +66,6 @@
       </p>
     </section>
   </div>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then((reg) => {
-          try { reg.update(); } catch {}
-          if (reg.waiting) try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch {}
-          reg.addEventListener('updatefound', () => {
-            const w = reg.installing;
-            if (!w) return;
-            w.addEventListener('statechange', () => {
-              if (w.state === 'installed' && navigator.serviceWorker.controller) {
-                try { w.postMessage({ type: 'SKIP_WAITING' }); } catch {}
-              }
-            });
-          });
-        }).catch(() => {});
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (refreshing) return;
-          refreshing = true;
-          // Soft reload once so shell picks v4 without stuck cache
-          try { location.reload(); } catch {}
-        });
-      });
-    }
-    const token = localStorage.getItem('qoria_token');
-    const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
-    btnPro.onclick = async () => {
-      billMsg.textContent = '…';
-      if (!token) { location.href = '/login.html'; return; }
-      const lang = (window.QoriaI18n && QoriaI18n.getLang && QoriaI18n.getLang()) || 'fr';
-      const r = await fetch('/api/billing/checkout', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token, 'X-Qoria-Lang': lang },
-        body: JSON.stringify({ devUpgrade: true })
-      });
-      const d = await r.json();
-      if (d.url) { location.href = d.url; return; }
-      billMsg.textContent = d.message || (d.ok ? t('pricing.bill.proOk') : t('pricing.bill.stub'));
-      if (d.ok && d.stub) setTimeout(() => location.href = '/app.html', 800);
-    };
-  </script>
+  <script src="/js/sw-boot.js" defer></script>
 </body>
 </html>

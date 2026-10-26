@@ -32,50 +32,6 @@
       <p style="margin-top:1.15rem;color:var(--muted);font-size:.9rem;text-align:center" data-i18n-html="login.footer">Pas de compte ? <a href="/signup.html">Créer un compte</a></p>
     </div>
   </div>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then((reg) => {
-          try { reg.update(); } catch {}
-          if (reg.waiting) try { reg.waiting.postMessage({ type: 'SKIP_WAITING' }); } catch {}
-          reg.addEventListener('updatefound', () => {
-            const w = reg.installing;
-            if (!w) return;
-            w.addEventListener('statechange', () => {
-              if (w.state === 'installed' && navigator.serviceWorker.controller) {
-                try { w.postMessage({ type: 'SKIP_WAITING' }); } catch {}
-              }
-            });
-          });
-        }).catch(() => {});
-        let refreshing = false;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (refreshing) return;
-          refreshing = true;
-          // Soft reload once so shell picks v4 without stuck cache
-          try { location.reload(); } catch {}
-        });
-      });
-    }
-    document.getElementById('form').onsubmit = async (e) => {
-      e.preventDefault();
-      const err = document.getElementById('err');
-      err.textContent = '';
-      const val = (id) => ((document.getElementById(id) || {}).value || '');
-      const t = (k) => (window.QoriaI18n && QoriaI18n.t(k)) || k;
-      try {
-        const lang = (window.QoriaI18n && QoriaI18n.getLang && QoriaI18n.getLang()) || 'fr';
-        const r = await fetch('/api/auth/login', {
-          method: 'POST', credentials: 'include',
-          headers: { 'Content-Type': 'application/json', 'X-Qoria-Lang': lang },
-          body: JSON.stringify({ email: val('email').trim(), password: val('password') })
-        });
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || t('login.err'));
-        if (d.token) localStorage.setItem('qoria_token', d.token);
-        location.href = '/app.html';
-      } catch (ex) { err.textContent = ex.message; }
-    };
-  </script>
+  <script src="/js/sw-boot.js" defer></script>
 </body>
 </html>

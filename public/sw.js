@@ -1,5 +1,5 @@
 /* Qoria — offline shell only (static assets). Never caches /api/* (auth/chat). */
-const CACHE = 'qoria-shell-v9';
+const CACHE = 'qoria-shell-v10';
 const PRECACHE = [
   '/',
   '/index.html',
@@ -10,6 +10,7 @@ const PRECACHE = [
   '/css/styles.css',
   '/js/app.js',
   '/js/i18n.js',
+  '/js/sw-boot.js',
   '/manifest.webmanifest',
   '/favicon.svg',
   '/logo.jpg',
@@ -22,7 +23,7 @@ const PRECACHE = [
 // Always try network first for these (avoid stale i18n/HTML flash)
 function isNetworkFirst(pathname) {
   if (pathname === '/' || pathname.endsWith('.html')) return true;
-  if (pathname === '/js/i18n.js' || pathname === '/js/app.js' || pathname === '/sw.js') return true;
+  if (pathname === '/js/i18n.js' || pathname === '/js/app.js' || pathname === '/js/sw-boot.js' || pathname === '/sw.js') return true;
   if (pathname === '/css/styles.css') return true;
   return false;
 }
@@ -37,7 +38,15 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
-    ).then(() => self.clients.claim())
+    )
+      .then(() => self.clients.claim())
+      .then(() =>
+        self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+          clients.forEach((c) => {
+            try { c.postMessage({ type: 'SW_ACTIVATED', cache: CACHE }); } catch (_) {}
+          });
+        })
+      )
   );
 });
 

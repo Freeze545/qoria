@@ -60,4 +60,4 @@ Usage Pro normal ne touche presque jamais le plafond — c’est un filet de sé
 
 ## PWA
 
-`manifest.webmanifest` + `apple-touch-icon` + service worker shell (`sw.js`, assets statiques seulement — **jamais** `/api/*`). Sur iPhone : Safari → Partager → Sur l’écran d’accueil.
+`manifest.webmanifest` + `apple-touch-icon` + service worker shell (`sw.js`, assets statiques seulement — **jamais** `/api/*`). Ajoute à l’écran d’accueil depuis ton navigateur (téléphone ou tablette).

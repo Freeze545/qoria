@@ -1,6 +1,6 @@
 # Qoria — plan produit & architecture
 
-**Marque :** Qoria (IA généraliste grand public, UI française Québec, mobile-first iPhone)  
+**Marque :** Qoria (IA généraliste grand public, UI française Québec, toutes plateformes, mobile-friendly)  
 **Pas DevisNord, pas Micheal commercial.**  
 **Repo :** Freeze545/qoria · hébergement Render (free → starter)
 
@@ -13,7 +13,7 @@ Produit public type ChatGPT/Grok/Gemini : chat, raisonnement, écriture, code, i
 ## Architecture
 
 ```
-iPhone (Safari/Chrome)
+Navigateur (téléphone, tablette, ordi)
   → HTTPS Render Web Service (Node/Express)
     → Auth JWT cookie + bcrypt
     → DB JSON fichier (data/qoria.json) — évolutif vers Postgres + disk
